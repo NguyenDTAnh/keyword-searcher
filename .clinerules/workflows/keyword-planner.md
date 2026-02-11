@@ -101,16 +101,16 @@ Tổng hợp 100 từ khóa (kết hợp cả Nhóm A và B) theo tỷ lệ Inte
 
 **QUAN TRỌNG:** Báo cáo keyword hoàn chỉnh phải được lưu vào file: **`[destination] - keyword.md`** (Ví dụ: `Hanoi - keyword.md`).
 
-Trình bày dưới dạng bảng Markdown. Sắp xếp theo **Cluster**.
+Trình bày dưới dạng bảng Markdown. Sắp xếp theo **Cluster** (A-Z). Trong mỗi Cluster, sắp xếp theo **SPI** từ cao đến thấp.
 
 **Bắt buộc thêm metadata để chống loạn ngữ cảnh:**
 
 - `Cluster Type`: loại thực thể (F&B, Địa danh tham quan, Văn hóa - Lịch sử, Lưu trú, Di chuyển...).
 - `Geo Scope`: `In-scope [destination]` / `Out-of-scope [Tỉnh/Thành khác]` / `Geo Ambiguous`.
 
-| Cluster    | Cluster Type | Geo Scope | Keyword   | Intent | Vol  | Imp  | Clicks | CTR | KD/Comp    | Nguồn Dữ Liệu (Source)             | Action Plan (Cụ thể) |
-| :--------- | :----------- | :-------- | :-------- | :----- | :--- | :--- | :----- | :-- | :--------- | :--------------------------------- | :------------------- |
-| [Tên Nhóm] | [Loại cụm]   | [In/Out]  | [Từ khóa] | [Loại] | [Số] | [Số] | [Số]   | [%] | [Low/High] | [`data/gsc/...` hoặc `Web Search`] | [Hành động cụ thể]   |
+| Cluster    | Cluster Type | Geo Scope | Keyword   | Intent | SPI       | Vol  | Imp  | Clicks | CTR | KD/Comp    | Nguồn Dữ Liệu (Source)             | Action Plan (Cụ thể) |
+| :--------- | :----------- | :-------- | :-------- | :----- | :-------- | :--- | :--- | :----- | :-- | :--------- | :--------------------------------- | :------------------- |
+| [Tên Nhóm] | [Loại cụm]   | [In/Out]  | [Từ khóa] | [Loại] | [Điểm số] | [Số] | [Số] | [Số]   | [%] | [Low/High] | [`data/gsc/...` hoặc `Web Search`] | [Hành động cụ thể]   |
 
 ---
 

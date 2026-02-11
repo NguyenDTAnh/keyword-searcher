@@ -403,6 +403,8 @@ class KeywordRow:
     action_plan: str
     group: str
     score: float
+    spi: str
+    spi: str
 
 
 def map_intent_from_seo_insider(main_intent: str) -> str | None:
@@ -744,7 +746,7 @@ def build_candidates():
 
         # SPI theo công thức: V * (I/V) * CTR = I * CTR
         # CTR trong GSC là %, convert về decimal
-        spi = float(r["imp"]) * (float(r["ctr"]) / 100.0)
+        spi_val = float(r["imp"]) * (float(r["ctr"]) / 100.0)
 
         row = KeywordRow(
             keyword=kw.lower(),
@@ -760,7 +762,8 @@ def build_candidates():
             source=r["source"],
             action_plan="",
             group="A",
-            score=spi,
+            score=spi_val,
+            spi=f"{spi_val:.1f}",
         )
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
@@ -810,6 +813,7 @@ def build_candidates():
             action_plan="",
             group="B",
             score=score,
+            spi="N/A",
         )
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
@@ -851,6 +855,7 @@ def build_candidates():
             action_plan="",
             group="B",
             score=float(si or 0),
+            spi="N/A",
         )
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
@@ -1002,7 +1007,7 @@ def run_quality_gate(rows: list[KeywordRow]):
 
 
 def export_markdown(rows: list[KeywordRow]):
-    header = f"""# REPORT KEYWORD PLANNER: {DESTINATION_NAME.upper()}
+    header_intro = f"""# REPORT KEYWORD PLANNER: {DESTINATION_NAME.upper()}
 
 ## 1. TỔNG QUAN CHIẾN LƯỢC
 - **Mục tiêu**: Chiếm lĩnh thị trường du lịch {DESTINATION_NAME} cho vietgoing.com bằng dữ liệu thực tế (GSC) + xu hướng (Trend/SEO Insider).
@@ -1011,14 +1016,28 @@ def export_markdown(rows: list[KeywordRow]):
   - `data/google_search_console/Queries.csv`
   - `data/seo_insider/advance_search_report.csv`
   - `data/google_trend/*.csv`
-
-## 2. CHI TIẾT TỪ KHÓA (PHÂN THEO CLUSTER)
-
-| Cluster | Cluster Type | Geo Scope | Keyword | Intent | Vol | Imp | Clicks | CTR | KD/Comp | Nguồn Dữ Liệu (Source) | Action Plan (Cụ thể) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 """
 
-    lines = [header]
+    # Top SPI summary for Group A
+    top_spi = [r for r in rows if r.group == "A"]
+    top_spi.sort(key=lambda x: float(x.score), reverse=True)
+    top_spi = top_spi[:10]
+
+    header_summary = "\n## 2. TOP TỪ KHÓA TIỀM NĂNG (THEO SPI - GROUP A)\n"
+    header_summary += "> **SPI (SEO Potential Index)** = Impressions x CTR (tương đương Clicks thực tế). Đây là các từ khóa đang perform tốt nhất, cần tối ưu để scale.\n\n"
+    header_summary += "| Keyword | Cluster | SPI (Clicks) | CTR | Action Plan |\n| :--- | :--- | :--- | :--- | :--- |\n"
+    for r in top_spi:
+        header_summary += f"| **{r.keyword}** | {r.cluster} | {r.spi} | {r.ctr} | Push Top |\n"
+
+    header_detail = f"""
+## 3. CHI TIẾT TỪ KHÓA (PHÂN THEO CLUSTER)
+
+| Cluster | Cluster Type | Geo Scope | Keyword | Intent | SPI | Vol | Imp | Clicks | CTR | KD/Comp | Nguồn Dữ Liệu (Source) | Action Plan (Cụ thể) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+"""
+
+    lines = [header_intro, header_summary, header_detail]
+
     for r in rows:
         lines.append(
             "| "
@@ -1029,6 +1048,7 @@ def export_markdown(rows: list[KeywordRow]):
                     r.geo_scope,
                     r.keyword,
                     r.intent,
+                    r.spi,
                     r.vol,
                     r.imp,
                     r.clicks,
