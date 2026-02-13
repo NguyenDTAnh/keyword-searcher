@@ -15,7 +15,7 @@ Bạn là Subagent chuyên trách sắp xếp, format và kiểm định dữ li
 
 **QUY TẮC BẮT BUỘC (CRITICAL):**
 
-- **100% PHẢI CÓ NGUỒN:** Mọi dòng dữ liệu tiếp nhận từ file `reports/[slug]-raw.csv` **BẮT BUỘC** phải có nhãn nguồn (`source`).
+- **100% PHẢI CÓ NGUỒN:** Mọi dòng dữ liệu tiếp nhận từ file `data/raw/[slug]-raw.csv` **BẮT BUỘC** phải có nhãn nguồn (`source`).
 - **LOẠI BỎ DỮ LIỆU KHÔNG NGUỒN:** Tuyệt đối không đưa vào báo cáo bất kỳ dữ liệu nào không xác định được nguồn gốc.
 
 Dựa vào cột `Group` hoặc `Source`, bạn phải chia (hoặc kiểm tra việc chia) từ khóa thành 2 bảng chiến lược hoặc 1 bảng Master có phân loại rõ ràng:
@@ -83,12 +83,12 @@ Trước khi xuất file, hãy tự trả lời:
 
 - Script chính: **`scripts/format_report.py`** — Đọc CSV, sắp xếp, chia 2 bảng, Quality Gate, xuất Markdown.
 - **Lệnh chạy:** `python3 .clinerules/skills/keyword-validator/scripts/format_report.py --name "[Destination]" --slug [slug]`
-- **Input:** `reports/[slug]-raw.csv` (do `collect_keywords.py` tạo).
+- **Input:** `data/raw/[slug]-raw.csv` (do `collect_keywords.py` tạo).
 - **Output:** `destination/[Destination] - keyword.md` (Final Report 2 bảng).
 
 ---
 
 ## 6. INPUT REQUIREMENT
 
-- **File đầu vào:** `reports/[slug]-raw.csv`
+- **File đầu vào:** `data/raw/[slug]-raw.csv`
 - **Action:** Đọc file CSV, thực hiện sắp xếp và format ngay lập tức.

@@ -5,24 +5,32 @@ Workflow này kết hợp sức mạnh của 2 skills chuyên biệt để tạo
 ## Inputs
 
 - **Destination Target**: Tên địa điểm cần làm SEO (VD: "Hà Nội", "Đà Nẵng", "Sapa").
-- **Dữ liệu nguồn**: Các file từ google_search_console, google_trend, seo_insider đặt tại `data/`.
+- **Dữ liệu nguồn**:
+  - `data/google_search_console/Queries.csv`
+  - `data/seo_insider/advance_search_report.csv`
+  - `data/google_trend/`
+  - `data/google_planner/[slug]/` (nếu có)
 
 ---
 
 ## BƯỚC 1: THU THẬP & PHÂN LOẠI (keyword-searcher)
 
-**Mục tiêu:** Thu thập từ khóa từ data nội bộ, lọc geo, gán cluster/intent, chọn 100 keyword chuẩn.
+**Mục tiêu:** Thu thập từ khóa từ đa nguồn (GSC, SEO Insider, Trends, Planner), lọc geo, gán cluster/intent.
 
-1.  **Ưu tiên 1 (Script):** Nếu folder `data/` có đầy đủ file CSV:
-    - **Lệnh:** `python3 .clinerules/skills/keyword-searcher/scripts/collect_keywords.py`
-    - **Lưu ý:** Fill `DestinationConfig` trong script trước khi chạy.
-    - **Output:** File CSV trung gian: `reports/[slug]-raw.csv`
+1.  **Chuẩn bị Script (Bắt buộc):**
+    - Copy mẫu: `cp .clinerules/skills/keyword-searcher/scripts/collect_keywords.py scripts/[slug]_collect_keywords.py`
+    - **Quan trọng:** Mở file mới tạo, cập nhật `DESTINATION = DestinationConfig(...)` đúng với địa điểm cần làm.
 
-2.  **Ưu tiên 2 (Manual/Add-on):** Nếu thiếu dữ liệu hoặc cần thêm keyword:
-    - Sử dụng skill `keyword-searcher` để research bổ sung.
-    - Đảm bảo output có cột `Group` (A: Cũ, B: Mới).
+2.  **Chạy Thu Thập:**
+    - **Lệnh:** `python3 scripts/[slug]_collect_keywords.py`
+    - **Output:** File CSV trung gian: `data/raw/[slug]-raw.csv`
 
-3.  **Output Mong Đợi:** File `reports/[slug]-raw.csv` có 100 keywords đã phân loại.
+3.  **Bước 3 (Fallback - Web Search):** Nếu dữ liệu < 100 keywords:
+    - Skill `keyword-searcher` tự động tìm kiếm bổ sung.
+    - Dữ liệu lưu tại `data/web_suggest/[slug].csv`.
+    - Script sẽ tự động merge.
+
+4.  **Output Mong Đợi:** File `data/raw/[slug]-raw.csv` đủ 100 keywords chất lượng.
 
 ---
 
@@ -32,11 +40,11 @@ Workflow này kết hợp sức mạnh của 2 skills chuyên biệt để tạo
 
 1.  **Chạy Script:**
     - **Lệnh:** `python3 .clinerules/skills/keyword-validator/scripts/format_report.py --name "[Destination]" --slug [slug]`
-    - **Input:** File `reports/[slug]-raw.csv` (từ Bước 1).
+    - **Input:** File `data/raw/[slug]-raw.csv` (từ Bước 1).
     - **Nhiệm vụ tự động:**
       - **Split Tables:** Chia thành 2 bảng riêng biệt:
         - **BẢNG 1: TỪ KHÓA CŨ (Group A):** Sắp xếp theo **CTR > Impressions > Clicks**.
-        - **BẢNG 2: TỪ KHÓA MỚI (Group B):** Sắp xếp theo **Volume > KD/Comp (Low trước)**.
+        - **BẢNG 2: TỪ KHÓA MỚI (Group B):** Sắp xếp theo **Score tổng hợp** (Volume cao + Cạnh tranh thấp/trung bình -> YoY tăng + Bid cao).
       - **Quality Gate:** Kiểm tra Taxonomy, Geo, Source, Intent 20/40/40.
     - **Output:** File Final: `destination/[Destination] - keyword.md`
 
@@ -59,4 +67,4 @@ Workflow này kết hợp sức mạnh của 2 skills chuyên biệt để tạo
 
 3.  **Kết thúc:**
     - File cuối cùng: **`destination/[Destination] - keyword.md`** (do `format_report.py` tạo).
-    - Dữ liệu trung gian: **`reports/[slug]-raw.csv`** (do `collect_keywords.py` tạo).
+    - Dữ liệu trung gian: **`data/raw/[slug]-raw.csv`** (do `collect_keywords.py` tạo).

@@ -191,13 +191,33 @@ DESTINATION = DestinationConfig(
 # Derived config
 # =====================
 
-WORKDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+
+def find_repo_root(start_dir: str) -> str:
+    """Tìm repo root một cách "trâu bò" để script chạy ổn dù file nằm ở đâu.
+
+    Tiêu chí: folder có đủ `data/` và `reports/`.
+    """
+    cur = os.path.abspath(start_dir)
+    while True:
+        if os.path.isdir(os.path.join(cur, "data")) and os.path.isdir(os.path.join(cur, "reports")):
+            return cur
+        parent = os.path.dirname(cur)
+        if parent == cur:
+            # Không tìm thấy, fallback về CWD hiện tại
+            return os.path.abspath(os.getcwd())
+        cur = parent
+
+
+WORKDIR = find_repo_root(os.path.dirname(__file__))
 
 GSC_QUERIES_PATH = os.path.join(WORKDIR, "data", "google_search_console", "Queries.csv")
 SEO_INSIDER_PATH = os.path.join(WORKDIR, "data", "seo_insider", "advance_search_report.csv")
 TRENDS_DIR = os.path.join(WORKDIR, "data", "google_trend")
+GOOGLE_PLANNER_DIR = os.path.join(WORKDIR, "data", "google_planner")
+WEB_SUGGEST_DIR = os.path.join(WORKDIR, "data", "web_suggest")
+
 # Output CSV trung gian — format_report.py sẽ đọc file này
-OUTPUT_CSV = os.path.join(WORKDIR, "reports", f"{DESTINATION.slug}-raw.csv")
+OUTPUT_CSV = os.path.join(WORKDIR, "data", "raw", f"{DESTINATION.slug}-raw.csv")
 
 
 # Danh sách tỉnh/thành để detect out-of-scope.
@@ -528,6 +548,7 @@ CSV_COLUMNS = [
     "keyword", "cluster", "cluster_type", "geo_scope", "intent",
     "vol", "imp", "clicks", "ctr", "kd_comp",
     "source", "action_plan", "group", "score", "spi",
+    "yoy", "bid_high",
 ]
 
 
@@ -548,6 +569,8 @@ class KeywordRow:
     group: str
     score: float
     spi: str
+    yoy: str = "N/A"
+    bid_high: str = "N/A"
 
 
 def map_intent_from_seo_insider(main_intent: str) -> str | None:
@@ -850,6 +873,164 @@ def load_trends(dir_path: str):
     return agg
 
 
+def load_google_planner(dir_path: str):
+    """Load keyword từ Google Keyword Planner (folder theo destination)."""
+    data = {}
+    if not os.path.exists(dir_path):
+        return data
+
+    def _parse_planner_int(val: str) -> int:
+        """Parse volume kiểu Planner: "1,000", "1000", "1K", "1K – 10K".
+        Không tự áng chừng số liệu ngoài pattern này.
+        """
+        if val is None:
+            return 0
+        s = str(val).strip()
+        if not s or s in ("--", "N/A"):
+            return 0
+        # Range dạng "1K – 10K" (en dash) hoặc "1K - 10K"
+        if "–" in s or "-" in s:
+            parts = re.split(r"\s*[–-]\s*", s)
+            parts = [p for p in parts if p.strip()]
+            if len(parts) >= 1:
+                return _parse_planner_int(parts[0])
+        # Suffix K/M
+        m = re.match(r"^([0-9]+(?:[\.,][0-9]+)?)\s*([kKmM])$", s)
+        if m:
+            num = float(m.group(1).replace(",", "."))
+            mul = 1000 if m.group(2).lower() == "k" else 1_000_000
+            return int(num * mul)
+        # Plain integer with separators
+        s2 = re.sub(r"[^0-9]", "", s)
+        return int(s2) if s2.isdigit() else 0
+
+    for path in glob.glob(os.path.join(dir_path, "*.csv")):
+        with open(path, newline="", encoding="utf-16") as f: # Planner usually UTF-16 LE
+            try:
+                # Skip first line if it's metadata (common in Planner exports)
+                # But CSV DictReader might handle if headers are clear.
+                # Often Planner exports have 2 header lines or title.
+                # Let's try reading safely.
+                content = f.read()
+            except UnicodeError:
+                # Try utf-8 if utf-16 fails
+                with open(path, newline="", encoding="utf-8") as f2:
+                    content = f2.read()
+
+        # Fix malformed lines or skip metadata
+        lines = content.splitlines()
+        start_line = 0
+        for i, line in enumerate(lines):
+            if "Keyword" in line or "Keyword phrase" in line:
+                start_line = i
+                break
+        
+        reader = csv.DictReader(lines[start_line:], delimiter='\t') # Planner often tab-separated or comma
+        if not reader.fieldnames or ("Keyword" not in reader.fieldnames and "Keyword phrase" not in reader.fieldnames):
+             reader = csv.DictReader(lines[start_line:], delimiter=',')
+        
+        for row in reader:
+            kw = row.get("Keyword") or row.get("Keyword phrase")
+            if not kw:
+                continue
+            kw = kw.strip()
+            
+            # Parse Volume
+            vol_str = (
+                row.get("Avg. monthly searches")
+                or row.get("Average monthly searches")
+                or row.get("Số lần tìm kiếm trung bình hàng tháng")
+                or "0"
+            )
+            vol = _parse_planner_int(vol_str)
+                
+            # Parse Competition
+            comp = row.get("Competition") # Low/Medium/High
+            comp_idx = row.get("Competition (indexed value)")
+            
+            # Parse YoY Change
+            yoy_raw = (
+                row.get("YoY change")
+                or row.get("Year-over-year change")
+                or row.get("Thay đổi so với cùng kỳ năm trước")
+                or "0%"
+            )
+            yoy = 0.0
+            try:
+                if yoy_raw and yoy_raw != "--":
+                    yoy = float(yoy_raw.replace("%", "").replace("+", "").strip())
+            except Exception:
+                yoy = 0.0
+
+            # Parse Top of page bid (high range)
+            bid_high_raw = (
+                row.get("Top of page bid (high range)")
+                or row.get("Giá thầu đầu trang (khoảng cao)")
+                or "0"
+            )
+            bid_high = 0.0
+            try:
+                if bid_high_raw and bid_high_raw != "--":
+                    # Remove currency symbols and separators (comma, dot depending on locale)
+                    # Simple heuristic: remove non-digit chars except dot/comma?
+                    # Better: keep digits, dot, comma. 
+                    # Assuming standard numeric format 1,000.00 or 1.000,00
+                    # Let's just remove non-digits to be safe if it is an integer currency like VND, 
+                    # but for USD it might be decimal. 
+                    # Chấp nhận rủi ro đơn giản hóa: remove non-digitchars
+                    # Nhưng nếu là 0.50 thì sao? -> 050 -> 50. Sai.
+                    # Cách an toàn hơn: Extract số đầu tiên tìm thấy.
+                    clean_str = re.sub(r"[^0-9\.,]", "", bid_high_raw)
+                    if "," in clean_str and "." in clean_str:
+                         # 1,234.56 or 1.234,56
+                         if clean_str.find(",") < clean_str.find("."):
+                             clean_str = clean_str.replace(",", "")
+                         else:
+                             clean_str = clean_str.replace(".", "").replace(",", ".")
+                    elif "," in clean_str:
+                         # 1,234 or 1,23 -> assume comma is thousand separator if collected is mainly huge numbers? 
+                         # Or decimal? Google Planner CSV usually follows account locale.
+                         # Safe bet: just treat comma/dot as separators if they appear once?
+                         # Let's try simple float parsing after replacing comma with dot if comma is decimal separator
+                         clean_str = clean_str.replace(",", "") # Assume comma is thousands separator usually
+                    
+                    bid_high = float(clean_str)
+            except Exception:
+                bid_high = 0.0
+
+            data[norm(kw)] = {
+                "keyword": kw,
+                "vol": vol,
+                "competition": comp,
+                "competition_index": comp_idx,
+                "yoy": yoy,
+                "bid_high": bid_high,
+                "source": f"data/google_planner/{os.path.basename(dir_path)}/{os.path.basename(path)}"
+            }
+    return data
+
+
+def load_web_suggest(path: str):
+    """Load keyword bổ sung từ web search (tự thu thập khi data nội bộ thiếu)."""
+    data = {}
+    if not os.path.exists(path):
+        return data
+
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            kw = (row.get("keyword") or row.get("Keyword") or "").strip()
+            if not kw:
+                continue
+            
+            data[norm(kw)] = {
+                "keyword": kw,
+                "vol": row.get("vol") or row.get("volume") or "N/A",
+                "source": f"web ({os.path.basename(path)})"
+            }
+    return data
+
+
 # =====================
 # Build candidates
 # =====================
@@ -859,6 +1040,10 @@ def build_candidates():
     seo = load_seo_insider(SEO_INSIDER_PATH)
     trends = load_trends(TRENDS_DIR)
     gsc_rows = load_gsc_queries(GSC_QUERIES_PATH)
+    
+    # Load Google Planner for this destination
+    planner_path = os.path.join(GOOGLE_PLANNER_DIR, DESTINATION.slug)
+    planner_data = load_google_planner(planner_path)
 
     candidates: dict[str, KeywordRow] = {}
 
@@ -878,6 +1063,11 @@ def build_candidates():
             continue
         if kw_n in ("vietgoing",):
             continue
+        
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
+        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+            continue
+
 
         cluster = cluster_name(kw, ctype, geo, out_cluster)
 
@@ -908,6 +1098,8 @@ def build_candidates():
             group="A",
             score=spi_val,
             spi=f"{spi_val:.1f}",
+            yoy="N/A",
+            bid_high="N/A",
         )
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
@@ -936,7 +1128,12 @@ def build_candidates():
         if kd is not None and kd >= 60:
             continue
 
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
+        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+            continue
+
         intent = resolve_intent(kw, ctype, s.get("main_intent"))
+
 
         kd_text = f"{kd_bucket(kd)} ({kd if kd is not None else 'N/A'})"
 
@@ -958,6 +1155,8 @@ def build_candidates():
             group="B",
             score=score,
             spi="N/A",
+            yoy="N/A",
+            bid_high="N/A",
         )
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
@@ -1000,6 +1199,128 @@ def build_candidates():
             group="B",
             score=float(si or 0),
             spi="N/A",
+            yoy=t.get("increase", "N/A"),
+            bid_high="N/A",
+        )
+        row.action_plan = action_plan_for(row)
+        candidates[kw_n] = row
+
+    # Group B3: Từ Google Planner (bổ sung)
+    for kw_n, p in planner_data.items():
+        if kw_n in candidates:
+            continue
+            
+        kw = p["keyword"]
+        geo, out_cluster = geo_scope(kw)
+        if not is_destination_related(kw, geo):
+            continue
+
+        # Filter: phải liên quan du lịch (tương tự SEO insider)
+        if cluster_type(kw) == "Tổng hợp" and not is_travelish(kw_n):
+            continue
+
+        ctype = cluster_type(kw)
+        cluster = cluster_name(kw, ctype, geo, out_cluster)
+        
+        vol = p["vol"]
+        if vol < 20: # Filter low volume noise
+            continue
+            
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
+        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+            continue
+
+        intent = resolve_intent(kw, ctype, None)
+
+        
+        kd_text = f"Planner ({p['competition'] or 'N/A'})"
+        
+        # Scoring Logic: Volume High + Comp Low/Medium -> YoY + Bid High
+        # 1. Base: Volume
+        base_score = float(vol)
+        
+        # 2. Competition Factor (Ưu tiên Low/Medium)
+        comp_val = (p["competition"] or "").lower()
+        if comp_val == "low":
+            comp_factor = 1.5
+        elif comp_val == "medium":
+            comp_factor = 1.2
+        elif comp_val == "high":
+            comp_factor = 0.8
+        else:
+            comp_factor = 1.0
+            
+        # 3. Bonus Factor (YoY > 0, Bid High > 0)
+        bonus_multiplier = 1.0
+        
+        # YoY tăng trưởng -> là trend -> ưu tiên
+        if p["yoy"] > 0:
+            bonus_multiplier += 0.2
+            
+        # Bid High cao -> Transactional intent cao -> ưu tiên
+        # (Ngưỡng bid check tương đối > 0 là được bonus nhẹ)
+        if p["bid_high"] > 0:
+            bonus_multiplier += 0.1
+            
+        score = base_score * comp_factor * bonus_multiplier
+        
+        row = KeywordRow(
+            keyword=kw.lower(),
+            cluster=cluster,
+            cluster_type=ctype,
+            geo_scope=geo,
+            intent=intent,
+            vol=str(vol),
+            imp="N/A",
+            clicks="N/A",
+            ctr="N/A",
+            kd_comp=kd_text,
+            source=p["source"],
+            action_plan="",
+            group="B",
+            score=score,
+            spi="N/A",
+            yoy=f"{p.get('yoy', 0.0):.1f}%" if p.get('yoy') else "0%",
+            bid_high=f"{p.get('bid_high', 0.0):,.0f}" if p.get('bid_high') else "0",
+        )
+        row.action_plan = action_plan_for(row)
+        candidates[kw_n] = row
+
+    # Group B4: Từ Web Suggest (bổ sung cuối cùng nếu vẫn thiếu)
+    web_suggest_path = os.path.join(WEB_SUGGEST_DIR, f"{DESTINATION.slug}.csv")
+    web_data = load_web_suggest(web_suggest_path)
+    for kw_n, w in web_data.items():
+        if kw_n in candidates:
+            continue
+            
+        kw = w["keyword"]
+        geo, out_cluster = geo_scope(kw)
+        if not is_destination_related(kw, geo):
+            continue
+
+        ctype = cluster_type(kw)
+        cluster = cluster_name(kw, ctype, geo, out_cluster)
+        
+        intent = resolve_intent(kw, ctype, None)
+
+        row = KeywordRow(
+            keyword=kw.lower(),
+            cluster=cluster,
+            cluster_type=ctype,
+            geo_scope=geo,
+            intent=intent,
+            vol=str(w["vol"]),
+            imp="N/A",
+            clicks="N/A",
+            ctr="N/A",
+            kd_comp="N/A (web)",
+            source=w["source"],
+            action_plan="",
+            group="B",
+            score=5.0, # Thấp hơn các nguồn chính thức
+            spi="N/A",
+            yoy="N/A",
+            bid_high="N/A",
         )
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
@@ -1114,6 +1435,8 @@ def export_csv(rows: list[KeywordRow]):
                 "group": r.group,
                 "score": r.score,
                 "spi": r.spi,
+                "yoy": r.yoy,
+                "bid_high": r.bid_high,
             })
 
 

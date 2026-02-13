@@ -11,13 +11,25 @@ Bạn là một AI Agent chuyên trách thu thập và cấu trúc dữ liệu S
 
 ---
 
-## 2. NGUỒN DỮ LIỆU & QUY TẮC TRÍCH XUẤT
+## 2. NGUỒN DỮ LIỆU & QUY TRÌNH TRUY VẤN (SEARCH WORKFLOW)
 
-Bạn sẽ truy cập và đối chiếu dữ liệu theo thứ tự ưu tiên sau:
+Bạn phải thực hiện tìm kiếm và thu thập dữ liệu theo đúng luồng tuần tự sau để đảm bảo tối ưu hóa tài nguyên nội bộ:
 
-1.  **Internal Data (`data/google_search_console`, `data/seo_insider`):** Nhãn nguồn: **[Tên file cụ thể]** (Ví dụ: `Queries.csv`, `Pages.csv`).
-2.  **Market Data (`data/google_trend`):** Nhãn nguồn: `google trend`.
-3.  **External Search (Web Search):** Nhãn nguồn: `web`.
+1.  **Giai đoạn 1: Khai thác Internal & Market Data**
+    - **Google Search Console:** `data/google_search_console/Queries.csv`.
+    - **Google Keyword Planner:** `data/google_planner/[slug]/` (Lấy dữ liệu theo đúng địa điểm đang search).
+    - **SEO Insider:** `data/seo_insider/advance_search_report.csv`.
+    - **Google Trend:** `data/google_trend/`.
+
+2.  **Giai đoạn 2: Kiểm tra số lượng (The 100-Keyword Threshold)**
+    - Tổng hợp và lọc dữ liệu từ các nguồn trên.
+    - **NẾU** tổng số từ khóa đạt yêu cầu (In-scope, Travel-intent) **đã đủ 100 từ**, dừng lại và tiến hành cấu trúc dữ liệu.
+    - **NẾU** tổng số từ khóa **chưa đủ 100 từ**, chuyển sang Giai đoạn 3.
+
+3.  **Giai đoạn 3: Fallback - Web Search**
+    - Sử dụng công cụ Search Web để bổ sung các từ khóa còn thiếu cho đến khi đạt mốc 100.
+    - Ưu tiên các từ khóa long-tail, trend mới chưa có trong database nội bộ.
+    - Lưu dữ liệu bổ sung vào `data/web_suggest/[slug].csv` để script có thể tích hợp.
 
 **QUY TẮC VỀ NGUỒN GỐC & DỮ LIỆU SỐ (CRITICAL):**
 
@@ -25,6 +37,7 @@ Bạn sẽ truy cập và đối chiếu dữ liệu theo thứ tự ưu tiên s
 - **BẮT BUỘC CÓ NGUỒN DÒNG:** Mỗi dòng dữ liệu **PHẢI** có cột Nguồn xác thực. Không có "Nguồn" = Loại bỏ.
 - **KHÔNG TỰ ÁNG CHỪNG:** Tuyệt đối không tự suy diễn hoặc ước tính các chỉ số nếu nguồn không cung cấp.
 - **KÝ HIỆU TRỐNG:** Nếu không có dữ liệu số, bắt buộc điền dấu `--`.
+- **LỌC TỪ KHOÁ NHẠY CẢM:** Tự động loại bỏ các từ khoá không phù hợp như "tình yêu", "tình nhân", ...
 
 ## 3. CHIẾN THUẬT THU THẬP (STRATEGY MIX)
 
@@ -38,8 +51,8 @@ Tổng hợp danh sách 100 từ khóa thô (kết hợp dữ liệu nội bộ 
 
 ## 4. ĐỊNH DẠNG ĐẦU RA (OUTPUT SPECIFICATION)
 
-Nếu sử dụng Script: Output mặc định tại **`reports/[slug]-raw.csv`** (CSV trung gian).
-Nếu làm thủ công: Lưu báo cáo vào thư mục **`reports/`** với tên file: **`[slug]-raw.csv`**.
+Nếu sử dụng Script: Output mặc định tại **`data/raw/[slug]-raw.csv`** (CSV trung gian).
+Nếu làm thủ công: Lưu báo cáo vào thư mục **`data/raw/`** với tên file: **`[slug]-raw.csv`**.
 
 File CSV phải bao gồm đủ các cột:
 `keyword, cluster, cluster_type, geo_scope, intent, vol, imp, clicks, ctr, kd_comp, source, action_plan, group, score, spi`
@@ -50,20 +63,44 @@ File CSV phải bao gồm đủ các cột:
 
 Để đạt hiệu quả cao nhất, hãy sử dụng hệ thống script tự động thay vì làm thủ công:
 
-1.  **Script gốc:** `scripts/collect_keywords.py`.
+1.  **Script gốc:** `.clinerules/skills/keyword-searcher/scripts/collect_keywords.py`.
 2.  **Quy trình cho Destination mới:**
-    - Copy `scripts/collect_keywords.py` thành `scripts/collect_[slug].py`.
+    - Copy `.clinerules/skills/keyword-searcher/scripts/collect_keywords.py` thành `scripts/[destination]_collect_keywords.py`.
     - Cập nhật phần `DESTINATION = DestinationConfig(...)` (name, slug, variants, entities, districts, landmark keywords).
-    - Chạy script: `python scripts/collect_[slug].py`.
-3.  **Kết quả:** Script sẽ tự động quét GSC, SEO Insider, Google Trend và xuất file **`reports/[slug]-raw.csv`**.
+    - Đảm bảo dữ liệu Google Planner nằm trong `data/google_planner/[slug]/` (nếu có).
+    - Chạy script: `python scripts/[destination]_collect_keywords.py`.
+3.  **Kết quả:** Script sẽ tự động quét GSC, SEO Insider, Google Trend, Google Planner và xuất file **`data/raw/[slug]-raw.csv`**.
+
 4.  **Hành động tiếp theo:** Dùng file `-raw.csv` này để làm đầu vào cho `keyword-validator` (chạy `format_report.py`).
 
 ---
 
-## 6. INPUT REQUIREMENT
+## 6. QUY TRÌNH THỰC HIỆN KHI CÓ REQUEST (STEP-BY-STEP)
+
+Khi nhận yêu cầu: _"Tạo bộ keyword cho [Destination]"_ (Ví dụ: Hà Nội):
+
+1.  **Xác định Destination:** Lấy `name`, `slug` và các `variants` địa lý.
+2.  **Thu thập dữ liệu nội bộ:**
+    - Quét file GSC, SEO Insider.
+    - Tìm dữ liệu Planner tại `data/google_planner/hanoi/`.
+    - Kiểm tra Google Trend.
+3.  **Đánh giá số lượng:**
+    - Nếu các nguồn trên trả về < 100 keywords Travel-intent/In-scope.
+    - -> Thực hiện `search_web` để tìm thêm ý tưởng (Top địa điểm, món ăn, tour tại [Destination]).
+    - -> Lưu kết quả search web vào `data/web_suggest/hanoi.csv`.
+4.  **Cấu hình & Chạy Script:**
+    - Tạo script `scripts/hanoi_collect_keywords.py` (copy từ bản gốc).
+    - Cập nhật `DestinationConfig` cho Hà Nội.
+    - Chạy script để merge tất cả nguồn thành `data/raw/hanoi-raw.csv`.
+5.  **Bàn giao:** Chuyển file raw sang bước `keyword-validator`.
+
+---
+
+## 7. INPUT REQUIREMENT
 
 - **Destination Target:** [NHẬP ĐỊA ĐIỂM TẠI ĐÂY]
 - **Action:**
-  1. Tạo/Cấu hình script collect riêng tại `scripts/`.
-  2. Chạy script để lấy dữ liệu thô (raw_data).
-  3. Kiểm tra tính chính xác của dữ liệu trước khi bàn giao cho bước validator.
+  1. Thực hiện luồng tìm kiếm tuần tự (Internal -> Market -> Web fallback).
+  2. Tạo/Cấu hình script collect riêng tại `scripts/`.
+  3. Chạy script để lấy dữ liệu thô (raw_data).
+  4. Đảm bảo đạt mốc 100 từ khóa chất lượng.

@@ -42,6 +42,7 @@ CSV_COLUMNS = [
     "keyword", "cluster", "cluster_type", "geo_scope", "intent",
     "vol", "imp", "clicks", "ctr", "kd_comp",
     "source", "action_plan", "group", "score", "spi",
+    "yoy", "bid_high",
 ]
 
 
@@ -62,6 +63,8 @@ class KeywordRow:
     group: str
     score: float
     spi: str
+    yoy: str = "N/A"
+    bid_high: str = "N/A"
 
 
 # =====================
@@ -111,6 +114,8 @@ def load_csv(csv_path: str) -> list[KeywordRow]:
                 group=row.get("group", ""),
                 score=float(row.get("score", 0)),
                 spi=row.get("spi", "N/A"),
+                yoy=row.get("yoy", "N/A"),
+                bid_high=row.get("bid_high", "N/A"),
             ))
     return rows
 
@@ -217,15 +222,15 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     # --- Section 4: BẢNG 2 — GROUP B (TỪ KHÓA MỚI) ---
     header_group_b = """
 ## 4. NHÓM 2: TỪ KHÓA MỚI (KHAI PHÁ THỊ TRƯỜNG - GROUP B)
-> **Tiêu chí sắp xếp**: Volume giảm dần > KD Low. Tập trung viết nội dung mới và xây dựng Topic Hub.
+> **Tiêu chí sắp xếp**: Score tổng hợp (Volume cao + Cạnh tranh thấp/trung bình -> YoY tăng + Bid cao).
 
-| STT | Cluster | Cluster Type | Keyword | Intent | Vol | KD/Comp | Source | Action Plan |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| STT | Cluster | Cluster Type | Keyword | Intent | Vol | YoY | KD/Comp | Bid (High) | Source | Action Plan |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 """
     group_b_rows = [r for r in rows if r.group == "B"]
-    # Sắp xếp Group B: Volume giảm dần > KD (ưu tiên Low trước)
+    # Sắp xếp Group B theo Score (đã được tính toán kỹ ở bước collect)
     group_b_rows.sort(
-        key=lambda x: (_parse_val(x.vol), -1 if "Low" in x.kd_comp else 0),
+        key=lambda x: float(x.score),
         reverse=True,
     )
 
@@ -245,7 +250,7 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     for r in group_b_rows:
         lines.append(
             f"| {idx_b} | {r.cluster} | {r.cluster_type} | **{r.keyword}** | {r.intent} "
-            f"| {r.vol} | {r.kd_comp} | {r.source} | {r.action_plan} |\n"
+            f"| {r.vol} | {r.yoy} | {r.kd_comp} | {r.bid_high} | {r.source} | {r.action_plan} |\n"
         )
         idx_b += 1
 
@@ -304,7 +309,7 @@ def main():
     dest_name = args.name
     slug = args.slug
 
-    csv_path = os.path.join(WORKDIR, "reports", f"{slug}-raw.csv")
+    csv_path = os.path.join(WORKDIR, "data", "raw", f"{slug}-raw.csv")
     output_path = os.path.join(WORKDIR, "destination", f"{dest_name} - keyword.md")
 
     if not os.path.exists(csv_path):
