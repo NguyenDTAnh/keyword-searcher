@@ -82,7 +82,7 @@ Trước khi xuất file, hãy tự trả lời:
 ## 5. SCRIPT HỖ TRỢ (SCRIPTS)
 
 - Script chính: **`scripts/format_report.py`** — Đọc CSV, sắp xếp, chia 2 bảng, Quality Gate, xuất Markdown.
-- **Lệnh chạy:** `python3 .clinerules/skills/keyword-validator/scripts/format_report.py --name "[Destination]" --slug [slug]`
+- **Lệnh chạy:** `python3 .agent/skills/keyword-validator/scripts/format_report.py --name "[Destination]" --slug [slug]`
 - **Input:** `data/raw/[slug]-raw.csv` (do `collect_keywords.py` tạo).
 - **Output:** `destination/[Destination] - keyword.md` (Final Report 2 bảng).
 

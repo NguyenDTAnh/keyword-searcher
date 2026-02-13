@@ -424,7 +424,13 @@ def geo_scope(keyword: str):
     """
     kw_n = norm(keyword)
 
-    # 1) Out-of-scope: detect tỉnh/thành khác (ưu tiên bắt trước)
+    # 1) In-scope: entity đặc hữu (Ưu tiên entity để catch "Lăng Bác Hồ", "TT Hội nghị Quốc gia"...)
+    # Tránh bị "out-of-scope" oan nếu entity chứa tên tỉnh khác (dù hiếm).
+    for e in DESTINATION.entities:
+        if kw_contains(kw_n, e):
+            return (f"In-scope {DESTINATION.name}", DESTINATION.name)
+
+    # 2) Out-of-scope: detect tỉnh/thành khác (ưu tiên bắt trước name generic)
     for prov in PROVINCES:
         # Skip nếu province là chính destination hiện tại
         if _is_destination_variant(prov):
@@ -438,19 +444,14 @@ def geo_scope(keyword: str):
                 prov_display = prov.title().replace("Tp ", "TP ")
             return (f"Out-of-scope {prov_display}", f"{prov_display} Trip")
 
-    # 2) In-scope: name variants
+    # 3) In-scope: name variants
     for v in DESTINATION.name_variants:
         if kw_contains(kw_n, v):
             return (f"In-scope {DESTINATION.name}", DESTINATION.name)
 
-    # 3) In-scope: quận/huyện
+    # 4) In-scope: quận/huyện
     for d in DESTINATION.districts:
         if kw_contains(kw_n, d):
-            return (f"In-scope {DESTINATION.name}", DESTINATION.name)
-
-    # 4) In-scope: entity đặc hữu
-    for e in DESTINATION.entities:
-        if kw_contains(kw_n, e):
             return (f"In-scope {DESTINATION.name}", DESTINATION.name)
 
     return ("Geo Ambiguous", "Geo Ambiguous")
@@ -921,7 +922,12 @@ def load_google_planner(dir_path: str):
         lines = content.splitlines()
         start_line = 0
         for i, line in enumerate(lines):
-            if "Keyword" in line or "Keyword phrase" in line:
+            # Check for multiple columns to distinguish header from title "Keyword Stats..."
+            if (("Keyword" in line or "Keyword phrase" in line) 
+                and ("Avg. monthly searches" in line 
+                     or "Average monthly searches" in line 
+                     or "Currency" in line
+                     or "Số lần tìm kiếm" in line)):
                 start_line = i
                 break
         

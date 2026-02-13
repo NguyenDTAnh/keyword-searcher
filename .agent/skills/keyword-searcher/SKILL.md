@@ -66,9 +66,9 @@ File CSV phải bao gồm đủ các cột:
 
 Để đạt hiệu quả cao nhất, hãy sử dụng hệ thống script tự động thay vì làm thủ công:
 
-1.  **Script gốc:** `.clinerules/skills/keyword-searcher/scripts/collect_keywords.py`.
+1.  **Script gốc:** `.agent/skills/keyword-searcher/scripts/collect_keywords.py`.
 2.  **Quy trình cho Destination mới:**
-    - Copy `.clinerules/skills/keyword-searcher/scripts/collect_keywords.py` thành `scripts/[destination]_collect_keywords.py`.
+    - Copy `.agent/skills/keyword-searcher/scripts/collect_keywords.py` thành `scripts/[destination]_collect_keywords.py`.
     - Cập nhật phần `DESTINATION = DestinationConfig(...)` (name, slug, variants, entities, districts, landmark keywords).
     - **Lưu ý Slug:** Phải khớp với thư mục dữ liệu (ví dụ: `data/google_planner/[slug]/`).
     - Đảm bảo dữ liệu Google Planner nằm trong `data/google_planner/[slug]/` (nếu có).

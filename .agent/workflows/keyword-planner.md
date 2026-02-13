@@ -22,7 +22,7 @@ Workflow này kết hợp sức mạnh của 2 skills chuyên biệt để tạo
 **Mục tiêu:** Thu thập từ khóa từ đa nguồn (GSC, SEO Insider, Trends, Planner), lọc geo, gán cluster/intent.
 
 1.  **Chuẩn bị Script (Bắt buộc):**
-    - Copy mẫu: `cp .clinerules/skills/keyword-searcher/scripts/collect_keywords.py scripts/[slug]_collect_keywords.py`
+    - Copy mẫu: `cp .agent/skills/keyword-searcher/scripts/collect_keywords.py scripts/[slug]_collect_keywords.py`
     - **Quan trọng:** Mở file mới tạo, cập nhật `DESTINATION = DestinationConfig(...)` đúng với địa điểm cần làm.
 
 2.  **Chạy Thu Thập:**
@@ -43,7 +43,7 @@ Workflow này kết hợp sức mạnh của 2 skills chuyên biệt để tạo
 **Mục tiêu:** Đọc CSV trung gian, sắp xếp chiến lược, xuất báo cáo 2 bảng Markdown.
 
 1.  **Chạy Script:**
-    - **Lệnh:** `python3 .clinerules/skills/keyword-validator/scripts/format_report.py --name "[Destination]" --slug [slug]`
+    - **Lệnh:** `python3 .agent/skills/keyword-validator/scripts/format_report.py --name "[Destination]" --slug [slug]`
     - **Input:** File `data/raw/[slug]-raw.csv` (từ Bước 1).
     - **Nhiệm vụ tự động:**
       - **Split Tables:** Chia thành 2 bảng riêng biệt:
