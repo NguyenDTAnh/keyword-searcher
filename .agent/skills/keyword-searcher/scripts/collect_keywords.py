@@ -1,13 +1,23 @@
 
-"""Generate lại report keyword cho Hà Nội theo spec `keyword-planner.md`.
+"""Script thu thập & phân loại từ khóa cho một destination.
 
-Yêu cầu quan trọng (tóm tắt đúng thứ tự ưu tiên):
-1) Chuẩn hoá Taxonomy (Cluster Type) trước khi gom cụm – không gom cảm tính.
-2) Chuẩn hoá Geo Scope (In-scope / Out-of-scope / Geo Ambiguous) – không trộn tỉnh.
-3) Nhóm A: ưu tiên dữ liệu GSC (Clicks/Impressions/CTR/Position) – không tự estimate số liệu thiếu.
-4) Nhóm B: cơ hội mở rộng từ SEO Insider + Google Trend (lọc travel intent).
-5) Phân bổ intent tổng 100 keyword theo tỉ lệ 20/40/40.
-6) Bắt buộc ghi rõ Source Folder/File cho từng dòng.
+CÁCH DÙNG:
+  1) Copy file này, đổi tên theo destination, ví dụ: collect_danang.py
+  2) Fill phần `DESTINATION = DestinationConfig(...)` ở đầu file.
+  3) Đặt data vào đúng thư mục: data/google_search_console, data/seo_insider, data/google_trend
+  4) Chạy: python .clinerules/skills/keyword-searcher/scripts/collect_keywords.py
+
+OUTPUT:
+  - File CSV trung gian: reports/[destination]-raw.csv (100 keywords đã xử lý)
+  - File CSV này sẽ được format_report.py (keyword-validator) đọc để tạo Report Final.
+
+Yêu cầu quan trọng (giữ nguyên spec keyword-planner.md):
+  1) Chuẩn hoá Taxonomy (Cluster Type) trước khi gom cụm – không gom cảm tính.
+  2) Chuẩn hoá Geo Scope (In-scope / Out-of-scope / Geo Ambiguous) – không trộn tỉnh.
+  3) Nhóm A: ưu tiên dữ liệu GSC (Clicks/Impressions/CTR/Position) – không tự estimate số liệu thiếu.
+  4) Nhóm B: cơ hội mở rộng từ SEO Insider + Google Trend (lọc travel intent).
+  5) Phân bổ intent tổng 100 keyword theo tỉ lệ 20/40/40.
+  6) Bắt buộc ghi rõ Source Folder/File cho từng dòng.
 """
 
 import csv
@@ -16,61 +26,182 @@ import os
 import re
 import unicodedata
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  DESTINATION CONFIG — CHỈ CẦN THAY ĐỔI PHẦN NÀY CHO MỖI DESTINATION      ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+@dataclass
+class DestinationConfig:
+    """Cấu hình destination-specific. User chỉ cần fill dataclass này."""
+
+    # --- Thông tin cơ bản ---
+    name: str
+    """Tên hiển thị chính thức. Ví dụ: 'Đà Nẵng', 'Phú Quốc', 'Hà Nội'."""
+
+    slug: str
+    """Slug cho filename output. Ví dụ: 'danang', 'phuquoc', 'hanoi'."""
+
+    name_variants: list[str] = field(default_factory=list)
+    """Các biến thể tên destination (bao gồm cả không dấu) để detect in-scope.
+    Ví dụ cho Đà Nẵng: ['đà nẵng', 'da nang', 'danang']
+    Ví dụ cho Phú Quốc: ['phú quốc', 'phu quoc', 'phuquoc']
+    """
+
+    # --- Địa lý đặc hữu ---
+    entities: list[str] = field(default_factory=list)
+    """Các entity đặc hữu (địa danh nổi tiếng) — keyword không cần chứa tên destination
+    vẫn được coi là in-scope nếu chứa entity này.
+    Ví dụ cho Đà Nẵng: ['cầu rồng', 'bà nà hills', 'bán đảo sơn trà', 'ngũ hành sơn', ...]
+    """
+
+    districts: list[str] = field(default_factory=list)
+    """Các quận/huyện thuộc destination.
+    Ví dụ cho Đà Nẵng: ['hải châu', 'thanh khê', 'liên chiểu', 'sơn trà', 'ngũ hành sơn', ...]
+    """
+
+    # --- Landmark & Taxonomy ---
+    landmark_keywords: list[str] = field(default_factory=list)
+    """Các từ khoá để detect cluster type = 'Địa danh tham quan / Văn hóa - Lịch sử'.
+    Sử dụng dạng không dấu (normalized) vì logic match đã strip accent.
+    Ví dụ cho Đà Nẵng: ['cau rong', 'ba na', 'ngu hanh son', 'son tra', 'linh ung', ...]
+    """
+
+    # --- Cluster Rules ---
+    cluster_rules: dict[str, list[dict[str, str]]] = field(default_factory=dict)
+    """Rules mapping cho cluster_name() theo cluster_type.
+    Format: {cluster_type: [{"pattern": regex_str, "name": display_name}, ...]}
+
+    Mỗi rule được check theo thứ tự, rule đầu tiên match sẽ thắng.
+    Nếu không rule nào match → fallback "{Cluster Type mặc định} {destination_name}".
+
+    Ví dụ cho Đà Nẵng:
+    {
+        "Địa danh tham quan / Văn hóa - Lịch sử": [
+            {"pattern": r"(cau rong|dragon bridge)", "name": "Cầu Rồng"},
+            {"pattern": r"(ba na|bana)", "name": "Bà Nà Hills"},
+            {"pattern": r"(ngu hanh son)", "name": "Ngũ Hành Sơn"},
+        ],
+        "Lưu trú": [
+            {"pattern": r"(my khe|mi khe)", "name": "Khách sạn gần Mỹ Khê"},
+            {"pattern": r"(\\b4 sao\\b|4 sao)", "name": "Khách sạn 4 sao Đà Nẵng"},
+            {"pattern": r"(\\b5 sao\\b|5 sao)", "name": "Khách sạn 5 sao Đà Nẵng"},
+        ],
+        "Di chuyển": [
+            {"pattern": r"(san bay|airport)", "name": "Sân bay Đà Nẵng & di chuyển"},
+            {"pattern": r"\\btour\\b", "name": "Tour Đà Nẵng"},
+        ],
+        "Ẩm thực (F&B)": [
+            {"pattern": r"(banh trang|bánh tráng)", "name": "Bánh tráng cuốn thịt heo"},
+            {"pattern": r"(mi quang|mì quảng)", "name": "Mì Quảng Đà Nẵng"},
+            {"pattern": r"(hai san|hải sản)", "name": "Hải sản Đà Nẵng"},
+        ],
+    }
+    """
+
+    province_display_overrides: dict[str, str] = field(default_factory=dict)
+    """Override tên hiển thị cho các tỉnh out-of-scope (dạng normalized -> display name).
+    Khi 1 keyword chứa tên tỉnh khác, script tự title() nhưng có thể sai dấu.
+    Dùng dict này để fix.
+    Ví dụ: {"phu quoc": "Phú Quốc", "da lat": "Đà Lạt", "da nang": "Đà Nẵng", ...}
+    """
+
+    # --- Travel-ish detection (tuỳ chọn mở rộng) ---
+    extra_travel_patterns: str = ""
+    """Regex pattern bổ sung cho is_travelish(). Nối thêm vào pattern mặc định.
+    Ví dụ: r"|bien|bãi biển|lan|diving|snorkeling" (cho destination biển).
+    Để trống nếu pattern mặc định đã đủ.
+    """
+
+
+# ┌──────────────────────────────────────────────────────────────────────────────┐
+# │  ⬇️  FILL CONFIG CHO DESTINATION CỦA BẠN TẠI ĐÂY  ⬇️                       │
+# └──────────────────────────────────────────────────────────────────────────────┘
+
+DESTINATION = DestinationConfig(
+    # TODO: Thay đổi theo destination thực tế
+    name="<TÊN DESTINATION>",            # Ví dụ: "Đà Nẵng"
+    slug="<SLUG>",                        # Ví dụ: "danang"
+
+    name_variants=[
+        # TODO: Liệt kê các biến thể tên destination (có dấu + không dấu + viết liền)
+        # Ví dụ: "đà nẵng", "da nang", "danang"
+    ],
+
+    entities=[
+        # TODO: Liệt kê entity đặc hữu — địa danh nổi tiếng chỉ thuộc destination này
+        # Keyword không chứa tên destination nhưng chứa entity vẫn được coi là in-scope
+        # Ví dụ: "cầu rồng", "bà nà hills", "bán đảo sơn trà", ...
+    ],
+
+    districts=[
+        # TODO: Liệt kê quận/huyện của destination
+        # Ví dụ: "hải châu", "thanh khê", "liên chiểu", ...
+    ],
+
+    landmark_keywords=[
+        # TODO: Từ khoá normalized (không dấu) để detect Landmark/Văn hoá-Lịch sử
+        # Chú ý: đây là dạng KHÔNG DẤU vì logic match đã strip accent
+        # Ví dụ: "cau rong", "ba na", "ngu hanh son", "son tra", ...
+    ],
+
+    cluster_rules={
+        # TODO: Định nghĩa rules mapping cluster_name theo từng cluster_type
+        # Format: {cluster_type: [{"pattern": regex, "name": display}, ...]}
+        # Rule đầu tiên match thắng. Không match -> fallback mặc định.
+        #
+        # "Địa danh tham quan / Văn hóa - Lịch sử": [
+        #     {"pattern": r"(cau rong)", "name": "Cầu Rồng"},
+        # ],
+        # "Lưu trú": [
+        #     {"pattern": r"(\\b5 sao\\b)", "name": "Khách sạn 5 sao <Destination>"},
+        # ],
+        # "Di chuyển": [
+        #     {"pattern": r"(san bay|airport)", "name": "Sân bay <Destination>"},
+        # ],
+        # "Ẩm thực (F&B)": [
+        #     {"pattern": r"(mi quang)", "name": "Mì Quảng <Destination>"},
+        # ],
+    },
+
+    province_display_overrides={
+        # TODO: Override hiển thị tên tỉnh (normalized -> có dấu đúng)
+        # "phu quoc": "Phú Quốc",
+        # "da lat": "Đà Lạt",
+        # "da nang": "Đà Nẵng",
+        # "sa pa": "Sa Pa",
+        # "tam dao": "Tam Đảo",
+    },
+
+    extra_travel_patterns="",
+    # TODO: Regex bổ sung cho travel-ish detection (nối thêm vào pattern mặc định)
+    # Ví dụ cho destination biển: r"|lan|diving|snorkeling|bien|bai bien"
+)
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  PHẦN DƯỚI ĐÂY KHÔNG CẦN CHỈNH SỬA (trừ khi muốn custom logic)           ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
 
 
 # =====================
-# Config
+# Derived config
 # =====================
 
-WORKDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+WORKDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 
 GSC_QUERIES_PATH = os.path.join(WORKDIR, "data", "google_search_console", "Queries.csv")
 SEO_INSIDER_PATH = os.path.join(WORKDIR, "data", "seo_insider", "advance_search_report.csv")
 TRENDS_DIR = os.path.join(WORKDIR, "data", "google_trend")
-OUTPUT_PATH = os.path.join(WORKDIR, "destination", "Hanoi - keyword.md")
-
-DESTINATION_NAME = "Hà Nội"
-
-# Các entity “đặc hữu” Hà Nội (keyword không cần chứa 'hà nội' vẫn in-scope)
-HANOI_ENTITIES = [
-    "hồ hoàn kiếm",
-    "hoàn kiếm",
-    "hồ gươm",
-    "phố cổ",
-    "hoàng thành thăng long",
-    "hoàng thành",
-    "văn miếu",
-    "quốc tử giám",
-    "lăng bác",
-    "lăng chủ tịch",
-    "lăng chủ tịch hồ chí minh",
-    "chùa trấn quốc",
-    "chùa một cột",
-    "hồ tây",
-    "nhà hát lớn",
-    "cột cờ",
-    "hồ tây",
-    "nội bài",
-]
-
-HANOI_DISTRICTS = [
-    "ba đình",
-    "hoàn kiếm",
-    "đống đa",
-    "cầu giấy",
-    "hai bà trưng",
-    "tây hồ",
-    "long biên",
-    "nam từ liêm",
-    "bắc từ liêm",
-    "thanh xuân",
-    "hà đông",
-]
+# Output CSV trung gian — format_report.py sẽ đọc file này
+OUTPUT_CSV = os.path.join(WORKDIR, "reports", f"{DESTINATION.slug}-raw.csv")
 
 
 # Danh sách tỉnh/thành để detect out-of-scope.
-# NOTE: Anh intentionally để list khá đầy đủ để giảm “lọt tỉnh”.
+# NOTE: List khá đầy đủ để giảm "lọt tỉnh". Phần exclude destination hiện tại tự động.
 PROVINCES = [
     "an giang",
     "bà rịa - vũng tàu",
@@ -95,6 +226,7 @@ PROVINCES = [
     "gia lai",
     "hà giang",
     "hà nam",
+    "hà nội",
     "hà tĩnh",
     "hải dương",
     "hải phòng",
@@ -134,6 +266,7 @@ PROVINCES = [
     "vĩnh long",
     "vĩnh phúc",
     "yên bái",
+    # Thêm các biến thể phổ biến (không dấu + viết liền)
     "phú quốc",
     "tam đảo",
     "sầm sơn",
@@ -144,7 +277,6 @@ PROVINCES = [
     "huế",
     "hue",
     "nha trang",
-    "khánh hòa",
     "vũng tàu",
     "vung tau",
     "quy nhơn",
@@ -164,6 +296,9 @@ PROVINCES = [
     "quan 3",
 ]
 
+# Tự động build set các normalized variant của destination để exclude khỏi PROVINCES
+_DESTINATION_NORM_VARIANTS = {norm_text for v in DESTINATION.name_variants for norm_text in [v]}
+
 
 # =====================
 # Helpers: normalize / parsing
@@ -172,7 +307,6 @@ PROVINCES = [
 
 def strip_accents(text: str) -> str:
     """Bỏ dấu để match địa danh ổn định hơn."""
-
     text = unicodedata.normalize("NFD", text)
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
     return unicodedata.normalize("NFC", text)
@@ -183,46 +317,67 @@ def norm(text: str) -> str:
 
 
 def kw_contains(kw_norm: str, phrase: str) -> bool:
-    # Match theo word-ish boundary để tránh match bậy kiểu 'langbiang' dính 'lang'
+    """Match theo word-ish boundary để tránh match bậy kiểu 'langbiang' dính 'lang'."""
     p = re.escape(norm(phrase))
     return re.search(rf"(^|\W){p}(\W|$)", kw_norm) is not None
 
 
 def is_travelish(kw_norm: str) -> bool:
-    return re.search(
-        # NOTE: Không dùng 'pho ' vì dễ dính 'phố' (street) sau khi bỏ dấu.
-        r"(du lich|check in|dia diem|choi gi|kinh nghiem|lich trinh|khach san|hotel|resort|homestay|hostel|villa|tour|dat |booking|thue xe|xe |limousine|taxi|san bay|noi bai|bus|tau|may bay|an|quan an|nha hang|buffet|bun |ca phe|coffee)",
-        kw_norm,
-    ) is not None
+    """Kiểm tra keyword có liên quan travel hay không."""
+    base_pattern = (
+        r"(du lich|check in|dia diem|choi gi|kinh nghiem|lich trinh"
+        r"|khach san|hotel|resort|homestay|hostel|villa"
+        r"|tour|dat |booking|thue xe|xe |limousine|taxi|san bay|bus|tau|may bay"
+        r"|an|quan an|nha hang|buffet|bun |ca phe|coffee)"
+    )
+    # Nối thêm extra_travel_patterns từ config (nếu có)
+    extra = DESTINATION.extra_travel_patterns.strip()
+    if extra:
+        # User truyền dạng "|pattern1|pattern2" hoặc "pattern1|pattern2" đều OK
+        if not extra.startswith("|"):
+            extra = "|" + extra
+        pattern = base_pattern[:-1] + extra + ")"
+    else:
+        pattern = base_pattern
+
+    return re.search(pattern, kw_norm) is not None
 
 
-def has_hanoi_token(keyword: str) -> bool:
+def has_destination_token(keyword: str) -> bool:
+    """Kiểm tra keyword có chứa token destination (name variants, districts, entities) hay không."""
     kw_n = norm(keyword)
-    if kw_contains(kw_n, "ha noi") or kw_contains(kw_n, "hanoi"):
-        return True
-    for d in HANOI_DISTRICTS:
+
+    # Check name variants
+    for variant in DESTINATION.name_variants:
+        if kw_contains(kw_n, variant):
+            return True
+
+    # Check districts
+    for d in DESTINATION.districts:
         if kw_contains(kw_n, d):
             return True
-    for e in HANOI_ENTITIES:
+
+    # Check entities
+    for e in DESTINATION.entities:
         if kw_contains(kw_n, e):
             return True
+
     return False
 
 
 def is_destination_related(keyword: str, geo_label: str) -> bool:
-    """Report Hà Nội nhưng vẫn cho phép keyword out-of-scope nếu có liên kết rõ ràng với Hà Nội.
+    """Cho phép keyword out-of-scope nếu có liên kết rõ ràng với destination.
 
     Ví dụ hợp lệ:
-    - "xe limousine hà nội tam đảo" => Out-of-scope Tam Đảo nhưng gắn Hà Nội (origin)
-    - "tour hà nội - hải phòng 1 ngày" => Out-of-scope Hải Phòng nhưng gắn Hà Nội
+    - "xe limousine đà nẵng hội an" => Out-of-scope Hội An nhưng gắn Đà Nẵng (origin)
+    - "tour đà nẵng - huế 1 ngày" => Out-of-scope Huế nhưng gắn Đà Nẵng
     """
-
-    if geo_label == f"In-scope {DESTINATION_NAME}":
+    if geo_label == f"In-scope {DESTINATION.name}":
         return True
     if geo_label.startswith("Out-of-scope"):
-        return has_hanoi_token(keyword)
-    # Geo ambiguous: chỉ giữ nếu có token Hà Nội
-    return has_hanoi_token(keyword)
+        return has_destination_token(keyword)
+    # Geo ambiguous: chỉ giữ nếu có token destination
+    return has_destination_token(keyword)
 
 
 # =====================
@@ -230,48 +385,53 @@ def is_destination_related(keyword: str, geo_label: str) -> bool:
 # =====================
 
 
+def _is_destination_variant(province_norm: str) -> bool:
+    """Check xem 1 province string (normalized) có phải là variant của destination hay không.
+    Dùng để exclude destination hiện tại ra khỏi PROVINCES check.
+    """
+    for v in DESTINATION.name_variants:
+        if norm(v) == norm(province_norm):
+            return True
+    return False
+
+
 def geo_scope(keyword: str):
     """Trả về (Geo Scope label, cluster_for_out_of_scope)
 
-    - In-scope Hà Nội: có token Hà Nội / quận Hà Nội / entity Hà Nội.
+    - In-scope {destination}: có token destination / quận / entity.
     - Out-of-scope: chứa tên tỉnh/thành khác => gom về '[Tỉnh/Thành] Trip'.
     - Mơ hồ: Geo Ambiguous.
     """
-
     kw_n = norm(keyword)
 
-    # 1) Out-of-scope: detect tỉnh/thành (ưu tiên bắt trước)
+    # 1) Out-of-scope: detect tỉnh/thành khác (ưu tiên bắt trước)
     for prov in PROVINCES:
-        if prov in ("hà nội", "ha noi", "hanoi"):
+        # Skip nếu province là chính destination hiện tại
+        if _is_destination_variant(prov):
             continue
         if kw_contains(kw_n, prov):
             # Chuẩn hoá tên hiển thị
-            prov_display = prov.title().replace("Tp ", "TP ")
-            if prov_display == "Phu Quoc":
-                prov_display = "Phú Quốc"
-            if prov_display == "Da Lat":
-                prov_display = "Đà Lạt"
-            if prov_display == "Da Nang":
-                prov_display = "Đà Nẵng"
-            if prov_display == "Sa Pa":
-                prov_display = "Sa Pa"
-            if prov_display == "Tam Dao":
-                prov_display = "Tam Đảo"
+            prov_norm = norm(prov)
+            # Check override từ config trước
+            prov_display = DESTINATION.province_display_overrides.get(prov_norm)
+            if not prov_display:
+                prov_display = prov.title().replace("Tp ", "TP ")
             return (f"Out-of-scope {prov_display}", f"{prov_display} Trip")
 
-    # 2) In-scope: token Hà Nội
-    if kw_contains(kw_n, "ha noi") or kw_contains(kw_n, "hanoi"):
-        return (f"In-scope {DESTINATION_NAME}", DESTINATION_NAME)
+    # 2) In-scope: name variants
+    for v in DESTINATION.name_variants:
+        if kw_contains(kw_n, v):
+            return (f"In-scope {DESTINATION.name}", DESTINATION.name)
 
-    # 3) In-scope: quận/huyện Hà Nội
-    for d in HANOI_DISTRICTS:
+    # 3) In-scope: quận/huyện
+    for d in DESTINATION.districts:
         if kw_contains(kw_n, d):
-            return (f"In-scope {DESTINATION_NAME}", DESTINATION_NAME)
+            return (f"In-scope {DESTINATION.name}", DESTINATION.name)
 
-    # 4) In-scope: entity đặc hữu Hà Nội
-    for e in HANOI_ENTITIES:
+    # 4) In-scope: entity đặc hữu
+    for e in DESTINATION.entities:
         if kw_contains(kw_n, e):
-            return (f"In-scope {DESTINATION_NAME}", DESTINATION_NAME)
+            return (f"In-scope {DESTINATION.name}", DESTINATION.name)
 
     return ("Geo Ambiguous", "Geo Ambiguous")
 
@@ -281,110 +441,94 @@ def cluster_type(keyword: str) -> str:
 
     RULE CỨNG: Landmark/văn hoá-lịch sử phải bắt trước F&B.
     """
-
-    raw = (keyword or "").lower().strip()
     kw_n = norm(keyword)
 
-    # 1) Lưu trú (ưu tiên cao nhất - keyword có landmark vẫn là intent ngủ nghỉ)
+    # 1) Lưu trú (ưu tiên cao nhất)
     if re.search(r"(khach san|hotel|resort|homestay|hostel|nha nghi|villa|apartment|can ho)", kw_n):
         return "Lưu trú"
 
-    # 2) Di chuyển (chỉ bắt các từ khoá vận chuyển, KHÔNG bắt mỗi chữ 'vé' để tránh nhầm vé tham quan)
+    # 2) Di chuyển
     if re.search(
-        r"(tour|taxi|xe |limousine|thue xe|bus|tau|may bay|san bay|airport|noi bai|di chuyen|dua don)",
+        r"(tour|taxi|xe |limousine|thue xe|bus|tau|may bay|san bay|airport|di chuyen|dua don)",
         kw_n,
     ):
         return "Di chuyển"
 
     # 3) F&B
-    # NOTE: Phân biệt "phở" (food) vs "phố" (street). Khi bỏ dấu cả 2 đều thành 'pho' -> dễ gán sai.
+    # NOTE: Phân biệt "phở" (food) vs "phố" (street). Bỏ dấu cả 2 đều thành 'pho'.
+    raw = (keyword or "").lower().strip()
     pho_is_food = (
         re.search(r"\bphở\b", raw) is not None
         or re.search(r"\bpho\s+(bo|ga|cuon|tai|nam|dap|tron)\b", kw_n) is not None
     )
 
     if (
-        re.search(r"\bbun\b", kw_n)  # bún (ít mơ hồ)
+        re.search(r"\bbun\b", kw_n)
         or pho_is_food
-        or re.search(r"(cha |banh |buffet|quan an|nha hang|an dem|cafe|ca phe|coffee|dac san|an uong)", kw_n) is not None
+        or re.search(
+            r"(cha |banh |buffet|quan an|nha hang|an dem|cafe|ca phe|coffee|dac san|an uong)",
+            kw_n,
+        )
+        is not None
     ):
         return "Ẩm thực (F&B)"
 
-    # 4) Landmark/VH-LS
-    if re.search(
-        r"(hoang thanh|van mieu|quoc tu giam|lang chu tich|lang bac|ho chi minh|chua|den|bao tang|di tich|pho co|ho guom|ho tay|hoan kiem|cot co|nha hat lon)",
-        kw_n,
-    ):
-        return "Địa danh tham quan / Văn hóa - Lịch sử"
+    # 4) Landmark/VH-LS — build regex từ config
+    if DESTINATION.landmark_keywords:
+        landmark_pattern = "|".join(re.escape(lk) for lk in DESTINATION.landmark_keywords)
+        # Thêm generic landmark keywords (chùa, đền, bảo tàng, di tích, ...)
+        landmark_pattern += r"|chua|den|bao tang|di tich"
+        if re.search(rf"({landmark_pattern})", kw_n):
+            return "Địa danh tham quan / Văn hóa - Lịch sử"
+    else:
+        # Fallback: chỉ dùng generic landmark keywords
+        if re.search(r"(chua|den|bao tang|di tich)", kw_n):
+            return "Địa danh tham quan / Văn hóa - Lịch sử"
 
     return "Tổng hợp"
 
 
 def cluster_name(keyword: str, ctype: str, geo_label: str, out_cluster: str) -> str:
-    raw = (keyword or "").lower().strip()
+    """Gán tên cluster dựa trên cluster_rules từ config.
+
+    Logic: Duyệt rules theo cluster_type, rule đầu tiên match thắng.
+    Fallback: "{Tên mặc định} {DESTINATION.name}" hoặc out_cluster / Geo Ambiguous.
+    """
     kw_n = norm(keyword)
 
+    # Out-of-scope => dùng cluster out-of-scope (vd: "Đà Lạt Trip")
     if geo_label.startswith("Out-of-scope"):
         return out_cluster
     if geo_label == "Geo Ambiguous":
         return "Geo Ambiguous"
 
-    # In-scope Hà Nội
-    if ctype == "Địa danh tham quan / Văn hóa - Lịch sử":
-        if re.search(r"(ho guom|hoan kiem|ho hoan kiem)", kw_n):
-            return "Hồ Hoàn Kiếm"
-        if re.search(r"(pho co)", kw_n):
-            return "Phố Cổ Hà Nội"
-        if re.search(r"(hoang thanh)", kw_n):
-            return "Hoàng Thành Thăng Long"
-        if re.search(r"(van mieu|quoc tu giam)", kw_n):
-            return "Văn Miếu - Quốc Tử Giám"
-        if re.search(r"(lang bac|lang chu tich|ho chi minh)", kw_n):
-            return "Lăng Bác & Quảng trường Ba Đình"
-        if re.search(r"(tran quoc|ho tay)", kw_n):
-            return "Chùa Trấn Quốc & Hồ Tây"
-        if re.search(r"(nha hat lon)", kw_n):
-            return "Nhà Hát Lớn Hà Nội"
-        if re.search(r"(cot co)", kw_n):
-            return "Cột Cờ Hà Nội"
-        return "Điểm tham quan Hà Nội"
+    # In-scope => check rules từ config
+    rules = DESTINATION.cluster_rules.get(ctype, [])
+    for rule in rules:
+        if re.search(rule["pattern"], kw_n):
+            return rule["name"]
 
-    if ctype == "Lưu trú":
-        if re.search(r"(pho co|ho guom|hoan kiem)", kw_n):
-            return "Khách sạn gần Hồ Gươm/Phố cổ"
-        if re.search(r"(ho tay)", kw_n):
-            return "Khách sạn Hồ Tây"
-        if re.search(r"(\b4 sao\b|4 sao)", kw_n):
-            return "Khách sạn 4 sao Hà Nội"
-        if re.search(r"(\b5 sao\b|5 sao)", kw_n):
-            return "Khách sạn 5 sao Hà Nội"
-        return "Khách sạn Hà Nội"
-
-    if ctype == "Di chuyển":
-        if re.search(r"(noi bai|san bay|airport)", kw_n):
-            return "Sân bay Nội Bài & di chuyển"
-        if re.search(r"\btour\b", kw_n):
-            return "Tour Hà Nội"
-        if re.search(r"limousine", kw_n):
-            return "Xe limousine từ Hà Nội"
-        return "Di chuyển Hà Nội"
-
-    if ctype == "Ẩm thực (F&B)":
-        if re.search(r"bun cha", kw_n):
-            return "Bún chả Hà Nội"
-        # Chỉ coi là phở nếu keyword có 'phở' hoặc 'pho' kèm biến thể phở phổ biến
-        if re.search(r"\bphở\b", raw) or re.search(r"\bpho\s+(bo|ga|cuon|tai|nam|dap|tron)\b", kw_n):
-            return "Phở Hà Nội"
-        if re.search(r"cafe|ca phe|coffee", kw_n):
-            return "Cà phê Hà Nội"
-        return "Ăn uống Hà Nội"
-
-    return "Tổng hợp Hà Nội"
+    # Fallback theo cluster_type
+    fallback_map = {
+        "Địa danh tham quan / Văn hóa - Lịch sử": f"Điểm tham quan {DESTINATION.name}",
+        "Lưu trú": f"Khách sạn {DESTINATION.name}",
+        "Di chuyển": f"Di chuyển {DESTINATION.name}",
+        "Ẩm thực (F&B)": f"Ăn uống {DESTINATION.name}",
+        "Tổng hợp": f"Tổng hợp {DESTINATION.name}",
+    }
+    return fallback_map.get(ctype, f"Tổng hợp {DESTINATION.name}")
 
 
 # =====================
 # Data models
 # =====================
+
+# Các cột CSV output — format_report.py sẽ đọc đúng theo thứ tự này
+CSV_COLUMNS = [
+    "keyword", "cluster", "cluster_type", "geo_scope", "intent",
+    "vol", "imp", "clicks", "ctr", "kd_comp",
+    "source", "action_plan", "group", "score", "spi",
+]
 
 
 @dataclass
@@ -404,7 +548,6 @@ class KeywordRow:
     group: str
     score: float
     spi: str
-    spi: str
 
 
 def map_intent_from_seo_insider(main_intent: str) -> str | None:
@@ -418,19 +561,18 @@ def map_intent_from_seo_insider(main_intent: str) -> str | None:
     # navigational: gần với commercial investigation
     if mi in ("navigational",):
         return "Commercial Investigation"
-    # Unknown/empty => để heuristic tự quyết (đừng auto đẩy về Informational)
+    # Unknown/empty => để heuristic tự quyết
     return None
 
 
 def resolve_intent(keyword: str, ctype: str, seo_main_intent: str | None) -> str:
-    """Resolve intent cuối cùng để vừa:
-    - Tôn trọng SEO Insider nếu họ chắc chắn (đặc biệt Transaction)
-    - Nhưng vẫn cho phép heuristic nâng một số query Lưu trú/Di chuyển sang Transaction
-      (vì user intent đặt dịch vụ thường implicit, không cần có 'giá/đặt').
+    """Resolve intent cuối cùng, kết hợp SEO Insider + heuristic.
 
-    Lý do: pool Transaction hiện bị thiếu nặng => không thể đạt ratio 20/40/40.
+    Ưu tiên:
+    - SEO nói Transaction → tin luôn
+    - Heuristic phát hiện Transaction cho Lưu trú/Di chuyển → ưu tiên Transaction
+    - SEO nói Informational nhưng heuristic khác → dùng heuristic
     """
-
     seo_intent = map_intent_from_seo_insider(seo_main_intent)
     inferred = infer_intent(keyword)
 
@@ -442,7 +584,7 @@ def resolve_intent(keyword: str, ctype: str, seo_main_intent: str | None) -> str
     if seo_intent == "Transaction":
         return "Transaction"
 
-    # Nếu heuristic nhìn ra Transaction rõ (đặc biệt Lưu trú/Di chuyển) thì ưu tiên Transaction
+    # Heuristic phát hiện Transaction cho Lưu trú/Di chuyển => ưu tiên Transaction
     if inferred == "Transaction" and ctype in ("Lưu trú", "Di chuyển"):
         return "Transaction"
 
@@ -454,11 +596,11 @@ def resolve_intent(keyword: str, ctype: str, seo_main_intent: str | None) -> str
 
 
 def infer_intent(keyword: str) -> str:
+    """Heuristic phân loại intent dựa trên keyword patterns."""
     kw_n = norm(keyword)
 
     # ===== Signals =====
     # Transaction: ý định mua/đặt rõ ràng
-    # NOTE: kw_n đã strip accent => 'giá' -> 'gia', 'đặt' -> 'dat', ...
     trans_sig = re.search(
         r"(\bgia\b|\bdat\b|booking|mua|\bthue\b|voucher|combo|deal|khuyen mai)",
         kw_n,
@@ -466,7 +608,6 @@ def infer_intent(keyword: str) -> str:
 
     # Một số cụm từ dù không có 'giá/đặt' vẫn mang ý định giao dịch
     trans_by_phrase = re.search(
-        # Không include 'tour' ở đây vì 'tour hà nội' nhiều khi là query so sánh/chọn tour.
         r"(ve may bay|vé máy bay|ve tau|vé tàu|ve xe|vé xe|dua don|đưa đón)",
         kw_n,
     )
@@ -478,9 +619,13 @@ def infer_intent(keyword: str) -> str:
     )
 
     is_stay = re.search(r"(khach san|hotel|resort|homestay|hostel|nha nghi|villa|apartment|can ho)", kw_n)
-    is_move = re.search(r"(may bay|san bay|airport|taxi|limousine|thue xe|xe |bus|tau|di chuyen|di lai|dua don|\btour\b|\bve\b)", kw_n)
-    is_landmark = re.search(
-        r"(hoang thanh|van mieu|quoc tu giam|lang chu tich|lang bac|ho chi minh|chua|den|bao tang|di tich|pho co|ho guom|ho tay|hoan kiem|cot co|nha hat lon)",
+    is_move = re.search(
+        r"(may bay|san bay|airport|taxi|limousine|thue xe|xe |bus|tau|di chuyen|di lai|dua don|\btour\b|\bve\b)",
+        kw_n,
+    )
+    is_landmark = bool(DESTINATION.landmark_keywords) and re.search(
+        "|".join(re.escape(lk) for lk in DESTINATION.landmark_keywords)
+        + r"|chua|den|bao tang|di tich",
         kw_n,
     )
     is_fb = re.search(r"(bun|pho|phở|quan an|nha hang|buffet|cafe|ca phe|coffee|dac san|an uong)", kw_n)
@@ -491,8 +636,6 @@ def infer_intent(keyword: str) -> str:
             return "Transaction"
         if comm_sig:
             return "Commercial Investigation"
-        # Mặc định: query khách sạn thường là giai đoạn cân nhắc/so sánh (CI)
-        # Transaction sẽ được nhận diện bằng signal 'giá/đặt/booking/...' hoặc được promote ở bước selection.
         return "Commercial Investigation"
 
     if is_move:
@@ -500,13 +643,9 @@ def infer_intent(keyword: str) -> str:
             return "Transaction"
         if comm_sig:
             return "Commercial Investigation"
-        # Mặc định:
-        # - taxi/limousine/thuê xe/đưa đón => Transaction (đặt dịch vụ)
-        # - tour chung chung ("tour hà nội") => thường là CI (đang xem có tour nào)
         if re.search(r"(taxi|limousine|thue xe|dua don)", kw_n):
             return "Transaction"
         if re.search(r"\btour\b", kw_n):
-            # Có duration/điểm đến cụ thể thì coi như Transaction hơn
             if re.search(r"(\b\d+\s*(ngay|dem)\b|1 ngay|2 ngay|3 ngay)", kw_n):
                 return "Transaction"
             return "Commercial Investigation"
@@ -517,7 +656,6 @@ def infer_intent(keyword: str) -> str:
             return "Transaction"
         if comm_sig:
             return "Commercial Investigation"
-        # các câu hỏi kiểu địa chỉ/ở đâu/giờ mở cửa => informational
         return "Informational"
 
     if is_fb:
@@ -546,12 +684,9 @@ def _has_comm_sig(kw_n: str) -> bool:
 
 
 def _is_soft_transaction_candidate(row: KeywordRow) -> bool:
-    """Keyword không có signal Transaction rõ, nhưng có thể coi là Transaction
+    """Keyword không có signal Transaction rõ, nhưng có thể promote từ CI -> Transaction
     để cân ratio 20/40/40 mà vẫn hợp lý với hành vi tìm kiếm du lịch.
-
-    NOTE: Chỉ dùng để "promote" từ CI -> Transaction trong selection.
     """
-
     if row.intent != "Commercial Investigation":
         return False
     if row.cluster_type not in ("Lưu trú", "Di chuyển"):
@@ -569,8 +704,7 @@ def _is_soft_transaction_candidate(row: KeywordRow) -> bool:
             return True
         return False
 
-    # Lưu trú: các query dạng "khách sạn ..." thường có intent booking implicit
-    # (nhưng Anh tránh promote những keyword có dấu hiệu thuần research như 'review/top/so sánh').
+    # Lưu trú: query dạng "khách sạn ..." thường có intent booking implicit
     if row.cluster_type == "Lưu trú":
         return True
 
@@ -588,11 +722,14 @@ def kd_bucket(kd: int | None) -> str:
 
 
 def action_plan_for(row: KeywordRow) -> str:
-    # Gợi ý hành động cụ thể theo nhóm + intent + ctype.
+    """Gợi ý hành động cụ thể theo nhóm + intent + cluster_type.
+    Dùng DESTINATION.name thay vì hardcode.
+    """
+    dest = DESTINATION.name
+
     if row.group == "A":
-        # Nhóm A: đang có data GSC
         if row.intent == "Transaction":
-            return "Tối ưu landing (CTA/giá/FAQ), cải thiện snippet để tăng CTR; internal link từ hub 'Hà Nội'"
+            return f"Tối ưu landing (CTA/giá/FAQ), cải thiện snippet để tăng CTR; internal link từ hub '{dest}'"
         if row.intent == "Commercial Investigation":
             return "Refresh bài top-list, thêm bảng so sánh + schema FAQ/Review; tối ưu title để tăng CTR"
         return "Cập nhật nội dung theo intent, bổ sung FAQ + schema, tối ưu title/meta để đẩy Top 1-3"
@@ -647,11 +784,19 @@ def load_seo_insider(path: str):
             if not kw:
                 continue
             try:
-                vol = int(float(row.get("search_volume") or 0)) if row.get("search_volume") not in (None, "", "--") else None
+                vol = (
+                    int(float(row.get("search_volume") or 0))
+                    if row.get("search_volume") not in (None, "", "--")
+                    else None
+                )
             except Exception:
                 vol = None
             try:
-                kd = int(float(row.get("difficulty") or 0)) if row.get("difficulty") not in (None, "", "--") else None
+                kd = (
+                    int(float(row.get("difficulty") or 0))
+                    if row.get("difficulty") not in (None, "", "--")
+                    else None
+                )
             except Exception:
                 kd = None
 
@@ -666,7 +811,7 @@ def load_seo_insider(path: str):
 
 
 def load_trends(dir_path: str):
-    # Gộp trend theo keyword: lấy max search interest và “increase” đáng chú ý nhất.
+    """Gộp trend theo keyword: lấy max search interest và "increase" đáng chú ý nhất."""
     agg = {}
     for path in glob.glob(os.path.join(dir_path, "*.csv")):
         with open(path, newline="", encoding="utf-8") as f:
@@ -728,7 +873,7 @@ def build_candidates():
 
         ctype = cluster_type(kw)
 
-        # Loại rác "tổng hợp" không phải du lịch (đỡ bẩn report Hà Nội)
+        # Loại rác "tổng hợp" không phải du lịch
         if ctype == "Tổng hợp" and not is_travelish(kw_n):
             continue
         if kw_n in ("vietgoing",):
@@ -744,8 +889,7 @@ def build_candidates():
         # Intent: resolve giữa SEO insider main_intent và heuristic
         intent = resolve_intent(kw, ctype, seo_row.get("main_intent") if seo_row else None)
 
-        # SPI theo công thức: V * (I/V) * CTR = I * CTR
-        # CTR trong GSC là %, convert về decimal
+        # SPI = Impressions * CTR (CTR ở GSC là %, convert về decimal)
         spi_val = float(r["imp"]) * (float(r["ctr"]) / 100.0)
 
         row = KeywordRow(
@@ -781,7 +925,7 @@ def build_candidates():
         ctype = cluster_type(kw)
         cluster = cluster_name(kw, ctype, geo, out_cluster)
 
-        # Filter: phải liên quan du lịch (SEO Insider hay dính keyword linh tinh)
+        # Filter: phải liên quan du lịch
         if ctype == "Tổng hợp" and not is_travelish(kw_n):
             continue
 
@@ -818,7 +962,7 @@ def build_candidates():
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
 
-    # Group B2: từ Google Trend – lọc travelish + Hanoi-ish
+    # Group B2: từ Google Trend – lọc travelish + destination-ish
     for kw_n, t in trends.items():
         if kw_n in candidates:
             continue
@@ -874,7 +1018,7 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
     for c in candidates:
         buckets[c.intent].append(c)
 
-    # sort inside intent by group and score
+    # Sort inside intent by group and score
     for intent, arr in buckets.items():
         arr.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
 
@@ -886,7 +1030,6 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
 
     def promote(row: KeywordRow, new_intent: str) -> KeywordRow:
         """Clone row và override intent + action_plan để output đúng bucket."""
-
         r2 = KeywordRow(**{**row.__dict__})
         r2.intent = new_intent
         r2.action_plan = action_plan_for(r2)
@@ -894,7 +1037,6 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
 
     def take(intent: str, target: int):
         """Lấy keyword từ bucket theo thứ tự ưu tiên, bỏ qua duplicate."""
-
         for row in buckets.get(intent, []):
             if sum(1 for r in selected if r.intent == intent) >= target:
                 break
@@ -918,7 +1060,6 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
         need = trans_target - sum(1 for r in selected if r.intent == "Transaction")
         ci_pool = buckets.get("Commercial Investigation", [])
         soft = [r for r in ci_pool if norm(r.keyword) not in used and _is_soft_transaction_candidate(r)]
-        # Ưu tiên Group A + score
         soft.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
         for row in soft[:need]:
             kn = norm(row.keyword)
@@ -930,7 +1071,7 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
     # 3) Commercial Investigation: lấy phần còn lại cho đủ target
     take("Commercial Investigation", targets["Commercial Investigation"])
 
-    # fill remaining (nếu thiếu do pool ít): lấy best overall nhưng KHÔNG phá ratio quá nhiều
+    # Fill remaining (nếu thiếu do pool ít): lấy best overall
     if len(selected) < total:
         rest = [c for c in candidates if norm(c.keyword) not in used]
         rest.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
@@ -946,163 +1087,53 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
 
 
 # =====================
-# Quality gate
+# CSV Export
 # =====================
 
 
-def run_quality_gate(rows: list[KeywordRow]):
-    """Return dict gate_name -> list issues.
-
-    Mục tiêu: export markdown hiển thị rõ từng gate PASS/FAIL.
-    """
-
-    gates: dict[str, list[str]] = {
-        "taxonomy": [],
-        "geo": [],
-        "source": [],
-        "intent_ratio": [],
-    }
-
-    # 1) Taxonomy: Landmark không được dính F&B
-    landmark_terms = ["hoàng thành", "văn miếu", "lăng", "chùa", "đền", "bảo tàng", "di tích", "phố cổ", "hồ gươm", "hồ tây", "hoàn kiếm"]
-    for r in rows:
-        if r.cluster_type != "Ẩm thực (F&B)":
-            continue
-        rn = norm(r.keyword)
-        if any(t in rn for t in [norm(x) for x in landmark_terms]):
-            gates["taxonomy"].append(f"Taxonomy lỗi: '{r.keyword}' bị gán vào F&B")
-
-    # 2) Geo: cluster Out-of-scope phải khớp geo
-    for r in rows:
-        if r.cluster.endswith(" Trip") and not r.geo_scope.startswith("Out-of-scope"):
-            gates["geo"].append(f"Geo lỗi: '{r.keyword}' có cluster '{r.cluster}' nhưng geo_scope='{r.geo_scope}'")
-        if r.geo_scope.startswith("Out-of-scope") and not r.cluster.endswith(" Trip"):
-            gates["geo"].append(f"Geo lỗi: '{r.keyword}' out-of-scope nhưng cluster='{r.cluster}'")
-
-    # 3) Source
-    for r in rows:
-        if not r.source or r.source.strip() == "":
-            gates["source"].append(f"Source thiếu: '{r.keyword}'")
-
-    # 4) Intent ratio (spec 20/40/40 cho report 100 keywords)
-    if len(rows) == 100:
-        from collections import Counter
-
-        cnt = Counter([r.intent for r in rows])
-        expected = {
-            "Informational": 20,
-            "Commercial Investigation": 40,
-            "Transaction": 40,
-        }
-        for k, v in expected.items():
-            if cnt.get(k, 0) != v:
-                gates["intent_ratio"].append(f"Intent ratio lỗi: expected {k}={v} nhưng actual={cnt.get(k, 0)}")
-
-    return gates
-
-
-# =====================
-# Markdown export
-# =====================
-
-
-def export_markdown(rows: list[KeywordRow]):
-    header_intro = f"""# REPORT KEYWORD PLANNER: {DESTINATION_NAME.upper()}
-
-## 1. TỔNG QUAN CHIẾN LƯỢC
-- **Mục tiêu**: Chiếm lĩnh thị trường du lịch {DESTINATION_NAME} cho vietgoing.com bằng dữ liệu thực tế (GSC) + xu hướng (Trend/SEO Insider).
-- **Tổng số từ khóa**: {len(rows)}
-- **Nguồn dữ liệu**:
-  - `data/google_search_console/Queries.csv`
-  - `data/seo_insider/advance_search_report.csv`
-  - `data/google_trend/*.csv`
-"""
-
-    # Top SPI summary for Group A
-    top_spi = [r for r in rows if r.group == "A"]
-    top_spi.sort(key=lambda x: float(x.score), reverse=True)
-    top_spi = top_spi[:10]
-
-    header_summary = "\n## 2. TOP TỪ KHÓA TIỀM NĂNG (THEO SPI - GROUP A)\n"
-    header_summary += "> **SPI (SEO Potential Index)** = Impressions x CTR (tương đương Clicks thực tế). Đây là các từ khóa đang perform tốt nhất, cần tối ưu để scale.\n\n"
-    header_summary += "| Keyword | Cluster | SPI (Clicks) | CTR | Action Plan |\n| :--- | :--- | :--- | :--- | :--- |\n"
-    for r in top_spi:
-        header_summary += f"| **{r.keyword}** | {r.cluster} | {r.spi} | {r.ctr} | Push Top |\n"
-
-    header_detail = f"""
-## 3. CHI TIẾT TỪ KHÓA (PHÂN THEO CLUSTER)
-
-| Cluster | Cluster Type | Geo Scope | Keyword | Intent | SPI | Vol | Imp | Clicks | CTR | KD/Comp | Nguồn Dữ Liệu (Source) | Action Plan (Cụ thể) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-"""
-
-    lines = [header_intro, header_summary, header_detail]
-
-    for r in rows:
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    r.cluster,
-                    r.cluster_type,
-                    r.geo_scope,
-                    r.keyword,
-                    r.intent,
-                    r.spi,
-                    r.vol,
-                    r.imp,
-                    r.clicks,
-                    r.ctr,
-                    r.kd_comp,
-                    r.source,
-                    r.action_plan,
-                ]
-            )
-            + " |\n"
-        )
-
-    # Quality gate note (chi tiết)
-    gates = run_quality_gate(rows)
-    lines.append("\n## 3. QUALITY GATE (AUTO-CHECK)\n")
-
-    # Tóm tắt intent distribution
-    from collections import Counter
-
-    cnt = Counter([r.intent for r in rows])
-    lines.append(f"- **Intent distribution**: Informational={cnt.get('Informational',0)}, Commercial Investigation={cnt.get('Commercial Investigation',0)}, Transaction={cnt.get('Transaction',0)}\n")
-
-    def gate_line(title: str, key: str):
-        if not gates.get(key):
-            lines.append(f"- [x] PASS: {title}\n")
-        else:
-            lines.append(f"- [ ] FAIL: {title}\n")
-            for i in gates[key][:20]:
-                lines.append(f"  - {i}\n")
-
-    gate_line("Taxonomy (landmark không được nằm trong F&B)", "taxonomy")
-    gate_line("Geo-scope (out-of-scope phải tách cluster '* Trip')", "geo")
-    gate_line("Source (mỗi keyword phải có source folder/file)", "source")
-    gate_line("Intent ratio (100 keywords phải đạt 20/40/40)", "intent_ratio")
-
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        f.write("".join(lines))
+def export_csv(rows: list[KeywordRow]):
+    """Xuất 100 keywords đã xử lý ra file CSV trung gian cho format_report.py."""
+    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({
+                "keyword": r.keyword,
+                "cluster": r.cluster,
+                "cluster_type": r.cluster_type,
+                "geo_scope": r.geo_scope,
+                "intent": r.intent,
+                "vol": r.vol,
+                "imp": r.imp,
+                "clicks": r.clicks,
+                "ctr": r.ctr,
+                "kd_comp": r.kd_comp,
+                "source": r.source,
+                "action_plan": r.action_plan,
+                "group": r.group,
+                "score": r.score,
+                "spi": r.spi,
+            })
 
 
 def main():
+    # Validate config trước khi chạy
+    if not DESTINATION.name or DESTINATION.name.startswith("<"):
+        print("❌ ERROR: Chưa fill DestinationConfig! Mở file và thay đổi phần DESTINATION = DestinationConfig(...).")
+        return
+
+    if not DESTINATION.name_variants:
+        print("⚠️  WARNING: name_variants trống. Script sẽ không detect được in-scope keywords.")
+
     candidates = build_candidates()
     selected = select_keywords(candidates, total=100)
-    export_markdown(selected)
+    export_csv(selected)
 
-    gates = run_quality_gate(selected)
-    print(f"Generated: {OUTPUT_PATH}")
-    print(f"Candidates: {len(candidates)} | Selected: {len(selected)}")
-    total_issues = sum(len(v) for v in gates.values())
-    print(f"Quality gate issues: {total_issues}")
-    if total_issues:
-        for k, arr in gates.items():
-            for i in arr[:10]:
-                print("-", i)
+    print(f"✅ Exported: {OUTPUT_CSV}")
+    print(f"   Candidates: {len(candidates)} | Selected: {len(selected)}")
+    print(f"\n👉 Bước tiếp: Chạy format_report.py để tạo Report Final.")
+    print(f"   python .clinerules/skills/keyword-validator/scripts/format_report.py")
 
 
 if __name__ == "__main__":
