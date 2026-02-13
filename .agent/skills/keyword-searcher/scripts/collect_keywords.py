@@ -1079,8 +1079,8 @@ def build_candidates():
         # Intent: resolve giữa SEO insider main_intent và heuristic
         intent = resolve_intent(kw, ctype, seo_row.get("main_intent") if seo_row else None)
 
-        # SPI = Impressions * CTR (CTR ở GSC là %, convert về decimal)
-        spi_val = float(r["imp"]) * (float(r["ctr"]) / 100.0)
+        # SPI = Clicks trực tiếp từ dữ liệu GSC
+        spi_val = float(r["clicks"])
 
         row = KeywordRow(
             keyword=kw.lower(),
