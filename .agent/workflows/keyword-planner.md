@@ -1,3 +1,7 @@
+---
+description: Tạo bộ keyword SEO
+---
+
 # WORKFLOW: KEYWORD PLANNER & STRATEGY
 
 Workflow này kết hợp sức mạnh của 2 skills chuyên biệt để tạo ra báo cáo từ khóa chất lượng cao cho `vietgoing.com`.
