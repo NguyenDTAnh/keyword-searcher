@@ -51,6 +51,9 @@ Tổng hợp danh sách 100 từ khóa thô (kết hợp dữ liệu nội bộ 
 
 ## 4. ĐỊNH DẠNG ĐẦU RA (OUTPUT SPECIFICATION)
 
+- **Quy tắc đặt Slug:** `[slug]` luôn là tên destination viết thường, viết liền, không dấu.
+  - Ví dụ: "Hà Nội" -> `hanoi`, "Tam Đảo" -> `tamdao`, "Hồ Chí Minh" -> `hochiminh`.
+
 Nếu sử dụng Script: Output mặc định tại **`data/raw/[slug]-raw.csv`** (CSV trung gian).
 Nếu làm thủ công: Lưu báo cáo vào thư mục **`data/raw/`** với tên file: **`[slug]-raw.csv`**.
 
@@ -67,6 +70,7 @@ File CSV phải bao gồm đủ các cột:
 2.  **Quy trình cho Destination mới:**
     - Copy `.clinerules/skills/keyword-searcher/scripts/collect_keywords.py` thành `scripts/[destination]_collect_keywords.py`.
     - Cập nhật phần `DESTINATION = DestinationConfig(...)` (name, slug, variants, entities, districts, landmark keywords).
+    - **Lưu ý Slug:** Phải khớp với thư mục dữ liệu (ví dụ: `data/google_planner/[slug]/`).
     - Đảm bảo dữ liệu Google Planner nằm trong `data/google_planner/[slug]/` (nếu có).
     - Chạy script: `python scripts/[destination]_collect_keywords.py`.
 3.  **Kết quả:** Script sẽ tự động quét GSC, SEO Insider, Google Trend, Google Planner và xuất file **`data/raw/[slug]-raw.csv`**.
@@ -80,6 +84,7 @@ File CSV phải bao gồm đủ các cột:
 Khi nhận yêu cầu: _"Tạo bộ keyword cho [Destination]"_ (Ví dụ: Hà Nội):
 
 1.  **Xác định Destination:** Lấy `name`, `slug` và các `variants` địa lý.
+    - **Quan trọng:** `slug` phải tuân thủ quy tắc viết thường + viết liền không dấu (e.g., `hochiminh`, `danang`).
 2.  **Thu thập dữ liệu nội bộ:**
     - Quét file GSC, SEO Insider.
     - Tìm dữ liệu Planner tại `data/google_planner/hanoi/`.
@@ -104,3 +109,13 @@ Khi nhận yêu cầu: _"Tạo bộ keyword cho [Destination]"_ (Ví dụ: Hà N
   2. Tạo/Cấu hình script collect riêng tại `scripts/`.
   3. Chạy script để lấy dữ liệu thô (raw_data).
   4. Đảm bảo đạt mốc 100 từ khóa chất lượng.
+
+---
+
+## 8. QUY TẮC "VÀNG" CHO AGENT (GOLDEN RULES)
+
+- **SLUG LÀ CHÌA KHÓA:** Luôn dùng định dạng viết thường, viết liền, không dấu (e.g., `hochiminh`). Mọi sai sót về slug sẽ dẫn đến mất dấu dữ liệu.
+- **NGUỒN GỐC LÀ SỰ THẬT:** Tuyệt đối không có dữ liệu nào được đưa vào mà thiếu cột "Source". Nếu lấy từ Web Search, ghi rõ `(web)`.
+- **KHÔNG NGỪNG TÌM KIẾM:** Nếu dữ liệu nội bộ < 100 keywords, bắt buộc phải dùng `search_web` để bổ sung. Đừng bao giờ bàn giao bộ keyword chỉ có 20-30 từ.
+- **SỬ DỤNG CONTEXT7:** Khi cần tra cứu cấu trúc file, thư viện Python (như pandas, re) hoặc các setup phức tạp, hãy sử dụng `context7` để đảm bảo độ chính xác cao nhất.
+- **KIỂM TRA ĐƯỜNG DẪN:** Trước khi chạy script, hãy `ls` kiểm tra xem thư mục `data/google_planner/[slug]/` có tồn tại hay không.

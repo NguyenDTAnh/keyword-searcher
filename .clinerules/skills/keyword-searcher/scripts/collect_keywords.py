@@ -124,7 +124,7 @@ class DestinationConfig:
 DESTINATION = DestinationConfig(
     # TODO: Thay đổi theo destination thực tế
     name="<TÊN DESTINATION>",            # Ví dụ: "Đà Nẵng"
-    slug="<SLUG>",                        # Ví dụ: "danang"
+    slug="<SLUG>",                        # QUY TẮC: viết thường + viết liền (e.g., "hanoi", "tamdao", "hochiminh")
 
     name_variants=[
         # TODO: Liệt kê các biến thể tên destination (có dấu + không dấu + viết liền)
