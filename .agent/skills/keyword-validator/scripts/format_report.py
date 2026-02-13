@@ -41,7 +41,7 @@ WORKDIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")
 CSV_COLUMNS = [
     "keyword", "cluster", "cluster_type", "geo_scope", "intent",
     "vol", "imp", "clicks", "ctr", "kd_comp",
-    "source", "action_plan", "group", "score", "spi",
+    "source", "action_plan", "group", "score",
     "yoy", "bid_high",
 ]
 
@@ -62,7 +62,6 @@ class KeywordRow:
     action_plan: str
     group: str
     score: float
-    spi: str
     yoy: str = "N/A"
     bid_high: str = "N/A"
 
@@ -70,6 +69,33 @@ class KeywordRow:
 # =====================
 # Helpers
 # =====================
+
+
+def get_source_stats(rows: list[KeywordRow]) -> str:
+    """Thống kê số lượng từ khóa theo nguồn."""
+    stats = Counter()
+    for r in rows:
+        src = r.source.strip()
+        if "google_planner" in src:
+            # Group planner files by directory: data/google_planner/hanoi/
+            parts = src.split("/")
+            try:
+                idx = parts.index("google_planner")
+                if idx + 1 < len(parts):
+                    label = "/".join(parts[:idx+2]) + "/"
+                else:
+                    label = src
+            except ValueError:
+                label = src
+        else:
+            label = src
+        stats[label] += 1
+
+    lines = []
+    # Sort by count desc
+    for src, count in stats.most_common():
+        lines.append(f"  - `{src}` ({count} từ khóa)")
+    return "\n".join(lines)
 
 def _parse_val(v: str) -> float:
     """Trích xuất giá trị số từ string có thể chứa label nguồn.
@@ -113,7 +139,6 @@ def load_csv(csv_path: str) -> list[KeywordRow]:
                 action_plan=row.get("action_plan", ""),
                 group=row.get("group", ""),
                 score=float(row.get("score", 0)),
-                spi=row.get("spi", "N/A"),
                 yoy=row.get("yoy", "N/A"),
                 bid_high=row.get("bid_high", "N/A"),
             ))
@@ -182,15 +207,14 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     """Tạo file markdown final với 2 bảng: Group A (Cũ) và Group B (Mới)."""
 
     # --- Section 1: Tổng quan ---
+    source_stats = get_source_stats(rows)
     header_intro = f"""# REPORT KEYWORD PLANNER: {dest_name.upper()}
 
 ## 1. TỔNG QUAN CHIẾN LƯỢC
 - **Mục tiêu**: Chiếm lĩnh thị trường du lịch {dest_name} cho vietgoing.com bằng dữ liệu thực tế (GSC) + xu hướng (Trend/SEO Insider).
 - **Tổng số từ khóa**: {len(rows)}
 - **Nguồn dữ liệu**:
-  - `data/google_search_console/Queries.csv`
-  - `data/seo_insider/advance_search_report.csv`
-  - `data/google_trend/*.csv`
+{source_stats}
 """
 
     # --- Section 2: Top SPI summary ---
@@ -199,18 +223,18 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     top_spi = top_spi[:10]
 
     header_summary = "\n## 2. TOP TỪ KHÓA TIỀM NĂNG (THEO SPI - GROUP A)\n"
-    header_summary += "> **SPI (SEO Potential Index)** = Impressions x CTR (tương đương Clicks thực tế). Đây là các từ khóa đang perform tốt nhất, cần tối ưu để scale.\n\n"
-    header_summary += "| Keyword | Cluster | SPI | CTR | Action Plan |\n| :--- | :--- | :--- | :--- | :--- |\n"
+    header_summary += "> **Action Plan**: Đây là các từ khóa đang perform tốt nhất, cần tối ưu để scale.\n\n"
+    header_summary += "| Keyword | Cluster | CTR | Action Plan |\n| :--- | :--- | :--- | :--- |\n"
     for r in top_spi:
-        header_summary += f"| **{r.keyword}** | {r.cluster} | {r.spi} | {r.ctr} | Push Top |\n"
+        header_summary += f"| **{r.keyword}** | {r.cluster} | {r.ctr} | Push Top |\n"
 
     # --- Section 3: BẢNG 1 — GROUP A (TỪ KHÓA CŨ) ---
     header_group_a = """
 ## 3. NHÓM 1: TỪ KHÓA CŨ (TỐI ƯU HÓA TÀI SẢN HIỆN CÓ - GROUP A)
 > **Tiêu chí sắp xếp**: CTR giảm dần > Impressions giảm dần. Tập trung tối ưu On-page và Internal Link để đẩy Top.
 
-| STT | Cluster | Cluster Type | Keyword | Intent | SPI | Imp | Clicks | CTR | KD/Comp | Source | Action Plan |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| STT | Cluster | Cluster Type | Keyword | Intent | Imp | Clicks | CTR | KD/Comp | Source | Action Plan |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 """
     group_a_rows = [r for r in rows if r.group == "A"]
     # Sắp xếp Group A: CTR giảm dần > Imp giảm dần > Clicks giảm dần
@@ -240,7 +264,7 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     for r in group_a_rows:
         lines.append(
             f"| {idx_a} | {r.cluster} | {r.cluster_type} | **{r.keyword}** | {r.intent} "
-            f"| {r.spi} | {r.imp} | {r.clicks} | {r.ctr} | {r.kd_comp} "
+            f"| {r.imp} | {r.clicks} | {r.ctr} | {r.kd_comp} "
             f"| {r.source} | {r.action_plan} |\n"
         )
         idx_a += 1

@@ -548,7 +548,7 @@ def cluster_name(keyword: str, ctype: str, geo_label: str, out_cluster: str) -> 
 CSV_COLUMNS = [
     "keyword", "cluster", "cluster_type", "geo_scope", "intent",
     "vol", "imp", "clicks", "ctr", "kd_comp",
-    "source", "action_plan", "group", "score", "spi",
+    "source", "action_plan", "group", "score",
     "yoy", "bid_high",
 ]
 
@@ -569,7 +569,6 @@ class KeywordRow:
     action_plan: str
     group: str
     score: float
-    spi: str
     yoy: str = "N/A"
     bid_high: str = "N/A"
 
@@ -1103,7 +1102,6 @@ def build_candidates():
             action_plan="",
             group="A",
             score=spi_val,
-            spi=f"{spi_val:.1f}",
             yoy="N/A",
             bid_high="N/A",
         )
@@ -1160,7 +1158,6 @@ def build_candidates():
             action_plan="",
             group="B",
             score=score,
-            spi="N/A",
             yoy="N/A",
             bid_high="N/A",
         )
@@ -1204,7 +1201,6 @@ def build_candidates():
             action_plan="",
             group="B",
             score=float(si or 0),
-            spi="N/A",
             yoy=t.get("increase", "N/A"),
             bid_high="N/A",
         )
@@ -1285,7 +1281,6 @@ def build_candidates():
             action_plan="",
             group="B",
             score=score,
-            spi="N/A",
             yoy=f"{p.get('yoy', 0.0):.1f}%" if p.get('yoy') else "0%",
             bid_high=f"{p.get('bid_high', 0.0):,.0f}" if p.get('bid_high') else "0",
         )
@@ -1324,7 +1319,6 @@ def build_candidates():
             action_plan="",
             group="B",
             score=5.0, # Thấp hơn các nguồn chính thức
-            spi="N/A",
             yoy="N/A",
             bid_high="N/A",
         )
@@ -1440,7 +1434,6 @@ def export_csv(rows: list[KeywordRow]):
                 "action_plan": r.action_plan,
                 "group": r.group,
                 "score": r.score,
-                "spi": r.spi,
                 "yoy": r.yoy,
                 "bid_high": r.bid_high,
             })
