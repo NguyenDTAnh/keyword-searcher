@@ -233,8 +233,8 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
 ## 3. NHÓM 1: TỪ KHÓA CŨ (TỐI ƯU HÓA TÀI SẢN HIỆN CÓ - GROUP A)
 > **Tiêu chí sắp xếp**: CTR giảm dần > Impressions giảm dần. Tập trung tối ưu On-page và Internal Link để đẩy Top.
 
-| STT | Cluster | Cluster Type | Keyword | Intent | Imp | Clicks | CTR | KD/Comp | Source | Action Plan |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| STT | Cluster | Cluster Type | Keyword | Intent | Imp | Clicks | CTR | Source | Action Plan |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 """
     group_a_rows = [r for r in rows if r.group == "A"]
     # Sắp xếp Group A: CTR giảm dần > Imp giảm dần > Clicks giảm dần
@@ -264,7 +264,7 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     for r in group_a_rows:
         lines.append(
             f"| {idx_a} | {r.cluster} | {r.cluster_type} | **{r.keyword}** | {r.intent} "
-            f"| {r.imp} | {r.clicks} | {r.ctr} | {r.kd_comp} "
+            f"| {r.imp} | {r.clicks} | {r.ctr} "
             f"| {r.source} | {r.action_plan} |\n"
         )
         idx_a += 1

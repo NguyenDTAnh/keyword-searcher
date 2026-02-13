@@ -56,16 +56,16 @@ Bạn **PHẢI** xuất báo cáo với 2 bảng riêng biệt như sau:
 - **Tiêu chí sắp xếp:** (1) **CTR** giảm dần -> (2) **Impressions** giảm dần -> (3) **Clicks** giảm dần.
 - **Nguồn gốc:** Chỉ bao gồm keywords có Source chứa `Queries.csv` hoặc nhãn `Group: A`.
 
-| Xếp hạng | Keyword | Cluster | CTR | Imp | Clicks | SPI | Intent | Action Plan |
-| :------- | :------ | :------ | :-- | :-- | :----- | :-- | :----- | :---------- |
+| STT | Cluster | Cluster Type | Keyword | Intent | Imp | Clicks | CTR | Source | Action Plan |
+| :-- | :------ | :----------- | :------ | :----- | :-- | :----- | :-- | :----- | :---------- |
 
 ### BẢNG 2: TỪ KHÓA MỚI (Khai phá thị trường - Group B)
 
 - **Tiêu chí sắp xếp:** (1) **Volume** giảm dần -> (2) **KD/Comp** (Ưu tiên Low trước).
 - **Nguồn gốc:** Chỉ bao gồm keywords từ `SEO Insider`, `Trend` hoặc `Web` (nhãn `Group: B`).
 
-| Xếp hạng | Keyword | Cluster | Vol | KD/Comp | Intent | Source | Action Plan |
-| :------- | :------ | :------ | :-- | :------ | :----- | :----- | :---------- |
+| STT | Cluster | Cluster Type | Keyword | Intent | Vol | YoY | KD/Comp | Bid (High) | Source | Action Plan |
+| :-- | :------ | :----------- | :------ | :----- | :-- | :-- | :------ | :--------- | :----- | :---------- |
 
 ---
 
