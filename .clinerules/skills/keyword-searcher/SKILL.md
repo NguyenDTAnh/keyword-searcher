@@ -38,6 +38,8 @@ Bạn phải thực hiện tìm kiếm và thu thập dữ liệu theo đúng lu
 - **KHÔNG TỰ ÁNG CHỪNG:** Tuyệt đối không tự suy diễn hoặc ước tính các chỉ số nếu nguồn không cung cấp.
 - **KÝ HIỆU TRỐNG:** Nếu không có dữ liệu số, bắt buộc điền dấu `--`.
 - **LỌC TỪ KHOÁ NHẠY CẢM:** Tự động loại bỏ các từ khoá không phù hợp như "tình yêu", "tình nhân", ...
+- **LỌC TOUR NƯỚC NGOÀI (BẮT BUỘC):** Với các nguồn `web_suggest`, `google_trend`, `google_planner`, **BỎ QUA** tất cả từ khóa liên quan đến tour nước ngoài (Thái Lan, Hàn Quốc, Nhật Bản, v.v.). Chỉ tập trung vào tour nội bộ và dịch vụ tại chỗ.
+- **ƯU TIÊN LƯU TRÚ:** Đặc biệt ưu tiên lấy các từ khóa về khách sạn, resort, villa, homestay. Các từ khóa này sẽ được script tự động tăng trọng số (score).
 
 ## 3. CHIẾN THUẬT THU THẬP (STRATEGY MIX)
 
@@ -116,6 +118,7 @@ Khi nhận yêu cầu: _"Tạo bộ keyword cho [Destination]"_ (Ví dụ: Hà N
 
 - **SLUG LÀ CHÌA KHÓA:** Luôn dùng định dạng viết thường, viết liền, không dấu (e.g., `hochiminh`). Mọi sai sót về slug sẽ dẫn đến mất dấu dữ liệu.
 - **NGUỒN GỐC LÀ SỰ THẬT:** Tuyệt đối không có dữ liệu nào được đưa vào mà thiếu cột "Source". Nếu lấy từ Web Search, ghi rõ `(web)`.
+- **NỘI ĐỊA CỐT LÕI:** Tuyệt đối không để lọt các từ "tour Thái Lan", "tour Hàn Quốc"... từ các nguồn mới vào bộ keyword final.
 - **KHÔNG NGỪNG TÌM KIẾM:** Nếu dữ liệu nội bộ < 100 keywords, bắt buộc phải dùng `search_web` để bổ sung. Đừng bao giờ bàn giao bộ keyword chỉ có 20-30 từ.
 - **SỬ DỤNG CONTEXT7:** Khi cần tra cứu cấu trúc file, thư viện Python (như pandas, re) hoặc các setup phức tạp, hãy sử dụng `context7` để đảm bảo độ chính xác cao nhất.
 - **KIỂM TRA ĐƯỜNG DẪN:** Trước khi chạy script, hãy `ls` kiểm tra xem thư mục `data/google_planner/[slug]/` có tồn tại hay không.

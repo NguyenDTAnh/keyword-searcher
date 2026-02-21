@@ -363,6 +363,29 @@ def is_travelish(kw_norm: str) -> bool:
     return re.search(pattern, kw_norm) is not None
 
 
+# Danh sách các thuật ngữ liên quan đến nước ngoài/nội địa để lọc
+FOREIGN_TERMS = [
+    "thai lan", "thailand", "han quoc", "korea", "nhat ban", "japan", "trung quoc", "china",
+    "singapore", "malaysia", "campuchia", "cambodia", "lao", "laos", "myanmar",
+    "chau au", "europe", "my", "usa", "duc", "germany", "phap", "france", "anh", "uk",
+    "uc", "australia", "dai loan", "taiwan", "hong kong", "macau",
+    "nuoc ngoai", "quoc te", "nga", "russia", "thuy sy", "italy", "italia", "ha lan", "philippines"
+]
+
+def is_foreign_related(kw_n: str) -> bool:
+    """Kiểm tra keyword có liên quan đến tour nước ngoài hay không."""
+    # Chỉ lọc nếu có chữ "tour" hoặc "du lich" đi kèm với tên nước ngoài
+    # để tránh lọc nhầm các entity có tên trùng (hiếm gặp nhưng an toàn hơn)
+    if not re.search(r"(tour|du lich|ve may bay|ve tau)", kw_n):
+        return False
+        
+    for term in FOREIGN_TERMS:
+        if kw_contains(kw_n, term):
+            return True
+    return False
+
+
+
 def has_destination_token(keyword: str) -> bool:
     """Kiểm tra keyword có chứa token destination (name variants, districts, entities) hay không."""
     kw_n = norm(keyword)
@@ -1177,6 +1200,10 @@ def build_candidates():
         if not is_travelish(kw_n):
             continue
 
+        # Lọc tour nước ngoài (nguồn Trends)
+        if is_foreign_related(kw_n):
+            continue
+
         ctype = cluster_type(kw)
         cluster = cluster_name(kw, ctype, geo, out_cluster)
 
@@ -1185,6 +1212,11 @@ def build_candidates():
         kd_text = f"Trend {('SI:'+str(si)) if si is not None else ''} {inc}".strip()
 
         intent = infer_intent(kw)
+
+        # Ưu tiên khách sạn/resort: tăng score
+        score = float(si or 0)
+        if ctype == "Lưu trú":
+            score *= 1.5
 
         row = KeywordRow(
             keyword=kw.lower(),
@@ -1200,7 +1232,7 @@ def build_candidates():
             source="; ".join(sorted(t["sources"])),
             action_plan="",
             group="B",
-            score=float(si or 0),
+            score=score,
             yoy=t.get("increase", "N/A"),
             bid_high="N/A",
         )
@@ -1218,10 +1250,14 @@ def build_candidates():
             continue
 
         # Filter: phải liên quan du lịch (tương tự SEO insider)
-        if cluster_type(kw) == "Tổng hợp" and not is_travelish(kw_n):
+        ctype = cluster_type(kw)
+        if ctype == "Tổng hợp" and not is_travelish(kw_n):
             continue
 
-        ctype = cluster_type(kw)
+        # Lọc tour nước ngoài (nguồn Planner)
+        if is_foreign_related(kw_n):
+            continue
+
         cluster = cluster_name(kw, ctype, geo, out_cluster)
         
         vol = p["vol"]
@@ -1266,6 +1302,10 @@ def build_candidates():
             
         score = base_score * comp_factor * bonus_multiplier
         
+        # Ưu tiên khách sạn/resort
+        if ctype == "Lưu trú":
+            score *= 1.5
+
         row = KeywordRow(
             keyword=kw.lower(),
             cluster=cluster,
@@ -1300,9 +1340,21 @@ def build_candidates():
             continue
 
         ctype = cluster_type(kw)
+        if ctype == "Tổng hợp" and not is_travelish(kw_n):
+            continue
+
+        # Lọc tour nước ngoài (nguồn Web)
+        if is_foreign_related(kw_n):
+            continue
+
         cluster = cluster_name(kw, ctype, geo, out_cluster)
         
         intent = resolve_intent(kw, ctype, None)
+
+        # Ưu tiên khách sạn/resort
+        score = 5.0
+        if ctype == "Lưu trú":
+            score = 10.0 # Tăng nhẹ để nổi bật hơn web suggest khác
 
         row = KeywordRow(
             keyword=kw.lower(),
@@ -1318,7 +1370,7 @@ def build_candidates():
             source=w["source"],
             action_plan="",
             group="B",
-            score=5.0, # Thấp hơn các nguồn chính thức
+            score=score,
             yoy="N/A",
             bid_high="N/A",
         )

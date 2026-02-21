@@ -122,63 +122,177 @@ class DestinationConfig:
 # └──────────────────────────────────────────────────────────────────────────────┘
 
 DESTINATION = DestinationConfig(
-    # TODO: Thay đổi theo destination thực tế
-    name="<TÊN DESTINATION>",            # Ví dụ: "Đà Nẵng"
-    slug="<SLUG>",                        # QUY TẮC: viết thường + viết liền (e.g., "hanoi", "tamdao", "hochiminh")
+    # Destination: Hà Nội
+    name="Hà Nội",
+    slug="hanoi",
 
+    # Variants: có dấu + không dấu + viết liền + viết tắt phổ biến
     name_variants=[
-        # TODO: Liệt kê các biến thể tên destination (có dấu + không dấu + viết liền)
-        # Ví dụ: "đà nẵng", "da nang", "danang"
+        "hà nội",
+        "ha noi",
+        "hanoi",
+        "hn",
     ],
 
+    # Entities/địa danh nổi tiếng: keyword không nhất thiết chứa 'hà nội' nhưng vẫn in-scope nếu dính entity
     entities=[
-        # TODO: Liệt kê entity đặc hữu — địa danh nổi tiếng chỉ thuộc destination này
-        # Keyword không chứa tên destination nhưng chứa entity vẫn được coi là in-scope
-        # Ví dụ: "cầu rồng", "bà nà hills", "bán đảo sơn trà", ...
+        "lăng bác",
+        "lăng chủ tịch hồ chí minh",
+        "hồ gươm",
+        "hồ hoàn kiếm",
+        "hoàn kiếm",
+        "phố cổ",
+        "ô quan chưởng",
+        "văn miếu",
+        "quốc tử giám",
+        "hồ tây",
+        "chùa trấn quốc",
+        "nhà thờ lớn",
+        "nhà hát lớn",
+        "hoàng thành thăng long",
+        "cột cờ hà nội",
+        "cầu long biên",
+        "nhà tù hỏa lò",
+        "hỏa lò",
+        "làng gốm bát tràng",
+        "bát tràng",
+        "phố đi bộ",
+        "đường tàu",
+        "chợ đồng xuân",
+        "đồng xuân",
+        "phố sách",
+        "tràng tiền",
+        "kem tràng tiền",
+        "bảo tàng dân tộc học",
+        "bảo tàng hồ chí minh",
+        "bảo tàng lịch sử",
+        "bảo tàng phụ nữ",
+        "tòa nhà lotte",
+        "lotte center",
+        "keangnam",
+        "svđ mỹ đình",
+        "my dinh",
+        "trung tâm hội nghị quốc gia",
+        "tt hội nghị quốc gia",
+        "sân bay nội bài",
+        "nội bài",
+        "noi bai",
     ],
 
+    # Quận/huyện Hà Nội (viết thường để match ổn)
     districts=[
-        # TODO: Liệt kê quận/huyện của destination
-        # Ví dụ: "hải châu", "thanh khê", "liên chiểu", ...
+        "ba đình",
+        "hoàn kiếm",
+        "tây hồ",
+        "long biên",
+        "cầu giấy",
+        "đống đa",
+        "hai bà trưng",
+        "hoàng mai",
+        "thanh xuân",
+        "hà đông",
+        "bắc từ liêm",
+        "nam từ liêm",
+        "gia lâm",
+        "đông anh",
+        "sóc sơn",
+        "thanh trì",
+        "hoài đức",
+        "đan phượng",
+        "thạch thất",
+        "quốc oai",
+        "phúc thọ",
+        "chương mỹ",
+        "thường tín",
+        "phú xuyên",
+        "mê linh",
+        "mỹ đức",
+        "ứng hòa",
     ],
 
+    # Landmark keywords (dạng KHÔNG DẤU) để bắt đúng cluster_type = Landmark/VH-LS
     landmark_keywords=[
-        # TODO: Từ khoá normalized (không dấu) để detect Landmark/Văn hoá-Lịch sử
-        # Chú ý: đây là dạng KHÔNG DẤU vì logic match đã strip accent
-        # Ví dụ: "cau rong", "ba na", "ngu hanh son", "son tra", ...
+        "lang bac",
+        "ho guom",
+        "ho hoan kiem",
+        "pho co",
+        "o quan chuong",
+        "van mieu",
+        "quoc tu giam",
+        "ho tay",
+        "chua tran quoc",
+        "nha tho lon",
+        "nha hat lon",
+        "hoang thanh thang long",
+        "cot co ha noi",
+        "cau long bien",
+        "hoa lo",
+        "bat trang",
+        "dong xuan",
+        "trang tien",
+        "my dinh",
+        "noi bai",
+        "bao tang dan toc hoc",
+        "bao tang phu nu",
     ],
 
+    # Rules cluster name để report nhìn "có tổ chức" hơn (không bị 1 cụm 'Điểm tham quan Hà Nội' quá to)
     cluster_rules={
-        # TODO: Định nghĩa rules mapping cluster_name theo từng cluster_type
-        # Format: {cluster_type: [{"pattern": regex, "name": display}, ...]}
-        # Rule đầu tiên match thắng. Không match -> fallback mặc định.
-        #
-        # "Địa danh tham quan / Văn hóa - Lịch sử": [
-        #     {"pattern": r"(cau rong)", "name": "Cầu Rồng"},
-        # ],
-        # "Lưu trú": [
-        #     {"pattern": r"(\\b5 sao\\b)", "name": "Khách sạn 5 sao <Destination>"},
-        # ],
-        # "Di chuyển": [
-        #     {"pattern": r"(san bay|airport)", "name": "Sân bay <Destination>"},
-        # ],
-        # "Ẩm thực (F&B)": [
-        #     {"pattern": r"(mi quang)", "name": "Mì Quảng <Destination>"},
-        # ],
+        "Địa danh tham quan / Văn hóa - Lịch sử": [
+            {"pattern": r"(lang bac|lang chu tich|ho chi minh mausoleum)", "name": "Lăng Bác & Quảng trường Ba Đình"},
+            {"pattern": r"(ho guom|hoan kiem)", "name": "Hồ Gươm & Hoàn Kiếm"},
+            {"pattern": r"(pho co|o quan chuong)", "name": "Phố cổ Hà Nội"},
+            {"pattern": r"(van mieu|quoc tu giam)", "name": "Văn Miếu - Quốc Tử Giám"},
+            {"pattern": r"(ho tay|tay ho|tran quoc)", "name": "Hồ Tây & Chùa Trấn Quốc"},
+            {"pattern": r"(hoang thanh thang long|cot co)", "name": "Hoàng Thành Thăng Long"},
+            {"pattern": r"(cau long bien)", "name": "Cầu Long Biên"},
+            {"pattern": r"(hoa lo)", "name": "Nhà tù Hỏa Lò"},
+            {"pattern": r"(bat trang)", "name": "Làng gốm Bát Tràng"},
+            {"pattern": r"(dong xuan)", "name": "Chợ Đồng Xuân"},
+            {"pattern": r"(trang tien)", "name": "Tràng Tiền & khu trung tâm"},
+            {"pattern": r"(my dinh)", "name": "Mỹ Đình & khu phía Tây"},
+        ],
+        "Lưu trú": [
+            {"pattern": r"(pho co|hoan kiem|old quarter)", "name": "Khách sạn phố cổ / Hoàn Kiếm"},
+            {"pattern": r"(tay ho|ho tay)", "name": "Khách sạn Tây Hồ"},
+            {"pattern": r"(cau giay)", "name": "Khách sạn Cầu Giấy"},
+            {"pattern": r"(my dinh|nam tu liem|bac tu liem)", "name": "Khách sạn Mỹ Đình / Từ Liêm"},
+            {"pattern": r"(ha dong)", "name": "Khách sạn Hà Đông"},
+        ],
+        "Di chuyển": [
+            {"pattern": r"(noi bai|san bay|airport)", "name": "Sân bay Nội Bài & di chuyển"},
+            {"pattern": r"(taxi|limousine|dua don|thue xe)", "name": "Taxi / Limousine / Thuê xe Hà Nội"},
+            {"pattern": r"\btour\b", "name": "Tour Hà Nội"},
+        ],
+        "Ẩm thực (F&B)": [
+            {"pattern": r"(bun cha)", "name": "Bún chả Hà Nội"},
+            {"pattern": r"(cha ca|cha ca la vong)", "name": "Chả cá Hà Nội"},
+            {"pattern": r"(banh cuon)", "name": "Bánh cuốn Hà Nội"},
+            {"pattern": r"(ca phe trung|coffee trung)", "name": "Cà phê trứng"},
+            {"pattern": r"(kem trang tien)", "name": "Kem Tràng Tiền"},
+        ],
     },
 
+    # Fix tên hiển thị các điểm out-of-scope hay dính vào keyword Hà Nội
     province_display_overrides={
-        # TODO: Override hiển thị tên tỉnh (normalized -> có dấu đúng)
-        # "phu quoc": "Phú Quốc",
-        # "da lat": "Đà Lạt",
-        # "da nang": "Đà Nẵng",
-        # "sa pa": "Sa Pa",
-        # "tam dao": "Tam Đảo",
+        "tp ho chi minh": "TP Hồ Chí Minh",
+        "ho chi minh": "TP Hồ Chí Minh",
+        "sai gon": "TP Hồ Chí Minh",
+        "da nang": "Đà Nẵng",
+        "phu quoc": "Phú Quốc",
+        "da lat": "Đà Lạt",
+        "ha long": "Hạ Long",
+        "nha trang": "Nha Trang",
+        "quy nhon": "Quy Nhơn",
+        "hue": "Huế",
+        "sa pa": "Sa Pa",
+        "sapa": "Sa Pa",
+        "tam dao": "Tam Đảo",
+        "vung tau": "Vũng Tàu",
     },
 
+    # Hà Nội là city-trip: pattern mặc định đã đủ, khỏi nối thêm cho đỡ bậy
     extra_travel_patterns="",
-    # TODO: Regex bổ sung cho travel-ish detection (nối thêm vào pattern mặc định)
-    # Ví dụ cho destination biển: r"|lan|diving|snorkeling|bien|bai bien"
 )
 
 
@@ -1092,8 +1206,8 @@ def build_candidates():
         if kw_n in ("vietgoing",):
             continue
         
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
 
@@ -1155,8 +1269,8 @@ def build_candidates():
         if kd is not None and kd >= 60:
             continue
 
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, s.get("main_intent"))
@@ -1264,8 +1378,8 @@ def build_candidates():
         if vol < 20: # Filter low volume noise
             continue
             
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, None)
