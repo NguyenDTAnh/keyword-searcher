@@ -130,50 +130,58 @@ DESTINATION = DestinationConfig(
     ],
 
     entities=[
-        "vịnh hạ long", "vinh ha long", "bãi cháy", "tuần châu", "hòn gai", "sun world", "bảo tàng quảng ninh", "núi bài thơ"
+        "vịnh hạ long", "bãi cháy", "tuần châu", "hòn gai", "sun world", 
+        "bảo tàng quảng ninh", "núi bài thơ", "hòn trống mái", "cáp treo nữ hoàng"
     ],
 
     districts=[
-        "bãi cháy", "hòn gai", "tuần châu", "hoành bồ", "cẩm phả"
+        "thành phố hạ long", "tp hạ long", "hồng gai", "bạch đằng", 
+        "trần hưng đạo", "giếng đáy", "hà lầm", "hà khánh"
     ],
 
     landmark_keywords=[
-        "vinh ha long", "bai chay", "tuan chau", "hon gai", "bai tho", "bao tang quang ninh", "sun world", "bao hai linh thong tu", "vong quay mat troi", "cong vien nuoc", "cong vien rong"
+        "vinh ha long", "bai chay", "tuan chau", "hon gai", "sun world", 
+        "bai tho", "bao tang quang ninh", "hon trong mai", "cap treo"
     ],
 
     cluster_rules={
         "Địa danh tham quan / Văn hóa - Lịch sử": [
-            {"pattern": r"(vinh ha long)", "name": "Vịnh Hạ Long"},
-            {"pattern": r"(sun world)", "name": "Sun World Hạ Long"},
+            {"pattern": r"(vinh ha long|halong bay)", "name": "Vịnh Hạ Long"},
+            {"pattern": r"(bai chay)", "name": "Bãi Cháy"},
             {"pattern": r"(tuan chau)", "name": "Đảo Tuần Châu"},
+            {"pattern": r"(sun world)", "name": "Sun World Hạ Long"},
             {"pattern": r"(bao tang)", "name": "Bảo tàng Quảng Ninh"},
+            {"pattern": r"(bai tho)", "name": "Núi Bài Thơ"},
+            {"pattern": r"(hon gai)", "name": "Hòn Gai"},
         ],
         "Lưu trú": [
             {"pattern": r"(bai chay)", "name": "Khách sạn Bãi Cháy"},
-            {"pattern": r"(\\b5 sao\\b|5 sao)", "name": "Khách sạn 5 sao Hạ Long"},
-            {"pattern": r"(\\b4 sao\\b|4 sao)", "name": "Khách sạn 4 sao Hạ Long"},
-            {"pattern": r"(resort)", "name": "Resort Hạ Long"},
+            {"pattern": r"(\\b5 sao\\b)", "name": "Khách sạn 5 sao Hạ Long"},
+            {"pattern": r"(\\b4 sao\\b)", "name": "Khách sạn 4 sao Hạ Long"},
+            {"pattern": r"(\\b3 sao\\b)", "name": "Khách sạn 3 sao Hạ Long"},
             {"pattern": r"(homestay)", "name": "Homestay Hạ Long"},
-            {"pattern": r"(du thuyen)", "name": "Du thuyền Hạ Long"},
+            {"pattern": r"(resort)", "name": "Resort Hạ Long"},
+            {"pattern": r"(villa|biet thu)", "name": "Villa Hạ Long"},
         ],
         "Di chuyển": [
-            {"pattern": r"(xe tuyen|xe khach|limousine)", "name": "Xe đi Hạ Long"},
-            {"pattern": r"(thuy phi co)", "name": "Thủy phi cơ Hạ Long"},
+            {"pattern": r"(tau|du thuyen|cruise)", "name": "Du thuyền Hạ Long"},
+            {"pattern": r"(xe|limousine|ha noi ha long)", "name": "Xe đi Hạ Long"},
             {"pattern": r"(tour)", "name": "Tour Hạ Long"},
-            {"pattern": r"(tau tieng)", "name": "Tàu tiếng Hạ Long"},
+            {"pattern": r"(thue xe may)", "name": "Thuê xe máy Hạ Long"},
         ],
         "Ẩm thực (F&B)": [
-            {"pattern": r"(hai san|hải sản)", "name": "Hải sản Hạ Long"},
-            {"pattern": r"(cha muc|chả mực)", "name": "Chả mực Hạ Long"},
-            {"pattern": r"(sua chua tran chau|sữa chua trân châu)", "name": "Sữa chua trân châu Hạ Long"},
+            {"pattern": r"(hai san)", "name": "Hải sản Hạ Long"},
+            {"pattern": r"(cha muc)", "name": "Chả mực Hạ Long"},
+            {"pattern": r"(nha hang|quan an)", "name": "Nhà hàng Hạ Long"},
         ],
     },
 
     province_display_overrides={
-        "quang ninh": "Quảng Ninh",
+        "hanoi": "Hà Nội",
+        "ha noi": "Hà Nội",
     },
 
-    extra_travel_patterns=r"|tau|du thuyen|cruise|bien|bai bien",
+    extra_travel_patterns=r"|bien|bãi biển|vinh|du thuyen|tàu"
 )
 
 
