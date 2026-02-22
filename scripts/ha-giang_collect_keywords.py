@@ -168,7 +168,7 @@ DESTINATION = DestinationConfig(
             {"pattern": r"(dinh thu ho vuong|dinh vua meo)", "name": "Dinh thự họ Vương"},
         ],
         "Lưu trú": [
-            {"pattern": r"(homestay|nha nghi)", "name": "Homestay / Nhà nghỉ Hà Giang"},
+            {"pattern": r"(homestay)", "name": "Homestay Hà Giang"},
             {"pattern": r"(khach san|hotel)", "name": "Khách sạn Hà Giang"},
             {"pattern": r"(resort)", "name": "Resort Hà Giang"},
         ],
@@ -1102,8 +1102,8 @@ def build_candidates():
         if kw_n in ("vietgoing",):
             continue
         
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
 
@@ -1165,8 +1165,8 @@ def build_candidates():
         if kd is not None and kd >= 60:
             continue
 
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, s.get("main_intent"))
@@ -1212,6 +1212,10 @@ def build_candidates():
 
         # Lọc tour nước ngoài (nguồn Trends)
         if is_foreign_related(kw_n):
+            continue
+
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         ctype = cluster_type(kw)
@@ -1274,8 +1278,8 @@ def build_candidates():
         if vol < 20: # Filter low volume noise
             continue
             
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, None)
@@ -1312,6 +1316,9 @@ def build_candidates():
             
         score = base_score * comp_factor * bonus_multiplier
         
+        # Yêu cầu: ưu tiên sử dụng keyword từ nguồn google planner cho nhóm B
+        score *= 50.0
+
         # Ưu tiên khách sạn/resort
         if ctype == "Lưu trú":
             score *= 1.5
@@ -1355,6 +1362,10 @@ def build_candidates():
 
         # Lọc tour nước ngoài (nguồn Web)
         if is_foreign_related(kw_n):
+            continue
+
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         cluster = cluster_name(kw, ctype, geo, out_cluster)
