@@ -123,59 +123,59 @@ class DestinationConfig:
 
 DESTINATION = DestinationConfig(
     name="Mộc Châu",
-    slug="moc-chau",
+    slug="moc_chau",
 
     name_variants=[
-        "mộc châu", "moc chau", "mocchau",
+        "mộc châu", "moc chau", "mocchau"
     ],
 
     entities=[
-        "đồi chè", "đồi chè trái tim", "rừng thông bản áng", "thác dải yếm", "đỉnh pha luông", 
-        "hang dơi", "ngũ động bản ôn", "thung lũng mận", "nà ka", "happy land", 
-        "cầu kính tình yêu", "cầu kính bạch long", "cao nguyên mộc châu", "đèo tà số", "mộc châu island"
+        "đồi chè trái tim", "rừng thông bản áng", "thác dải yếm", "đỉnh pha luông", 
+        "hang dơi", "ngũ động bản ôn", "bản lóng luông", "thung lũng mận nà ka", 
+        "chợ tình mộc châu", "bản pá phách", "cầu kính tình yêu", "đồi chè ô long",
+        "mộc châu island", "thác chiềng khoa", "đồi chè", "bản áng", "dải yếm", "pha luông"
     ],
 
     districts=[
-        "mộc châu", "vân hồ",
+        "vân hồ", "mộc châu"
     ],
 
     landmark_keywords=[
-        "doi che", "ban ang", "dai yem", "pha luong", "ngu dong", "na ka", "happy land", 
-        "cau kinh", "bach long", "hang doi", "cao nguyen", "ta so", "lang che", "ban thung",
+        "doi che", "trai tim", "ban ang", "rung thong", "dai yem", "pha luong", "hang doi", 
+        "ban on", "long luong", "na ka", "cho tinh", "pa phach", "cau kinh", "moc chau island", "chieng khoa"
     ],
 
     cluster_rules={
         "Địa danh tham quan / Văn hóa - Lịch sử": [
-             {"pattern": r"(doi che|trai tim)", "name": "Đồi chè Mộc Châu"},
-             {"pattern": r"(ban ang|rung thong)", "name": "Rừng thông Bản Áng"},
-             {"pattern": r"(dai yem)", "name": "Thác Dải Yếm"},
-             {"pattern": r"(pha luong)", "name": "Đỉnh Pha Luông"},
-             {"pattern": r"(cau kinh|bach long)", "name": "Cầu kính Bạch Long / Tình Yêu"},
-             {"pattern": r"(na ka|thung lung man|mua man|hoa man|hoa cai)", "name": "Mùa hoa / Thung lũng mận Mộc Châu"},
+            {"pattern": r"(doi che|trai tim|o long)", "name": "Đồi chè Mộc Châu"},
+            {"pattern": r"(ban ang|rung thong)", "name": "Rừng thông Bản Áng"},
+            {"pattern": r"(dai yem)", "name": "Thác Dải Yếm"},
+            {"pattern": r"(pha luong)", "name": "Đỉnh Pha Luông"},
+            {"pattern": r"(na ka|thung lung man|hoa man|hoa cai)", "name": "Mùa hoa Mộc Châu / Thung lũng mận"},
+            {"pattern": r"(cau kinh|bach long|tinh yeu)", "name": "Cầu kính / Mộc Châu Island"},
+            {"pattern": r"(chieng khoa)", "name": "Thác Chiềng Khoa"},
         ],
         "Lưu trú": [
-             {"pattern": r"(homestay)", "name": "Homestay Mộc Châu"},
-             {"pattern": r"(khach san|hotel)", "name": "Khách sạn Mộc Châu"},
-             {"pattern": r"(resort)", "name": "Resort Mộc Châu"},
+            {"pattern": r"(homestay|nha san)", "name": "Homestay Mộc Châu"},
+            {"pattern": r"(resort|khach san|hotel)", "name": "Khách sạn / Resort Mộc Châu"},
+            {"pattern": r"(nha nghi)", "name": "Nhà nghỉ Mộc Châu"},
         ],
         "Di chuyển": [
-             {"pattern": r"(xe khach|limousine|xe giuong nam)", "name": "Nhà xe đi Mộc Châu"},
-             {"pattern": r"(thue xe may)", "name": "Thuê xe máy Mộc Châu"},
+            {"pattern": r"(xe khach|limousine|xe tuyen)", "name": "Xe khách Mộc Châu"},
+            {"pattern": r"(thue xe|taxi|xe may)", "name": "Thuê xe Mộc Châu"},
         ],
         "Ẩm thực (F&B)": [
-             {"pattern": r"(sua bo|sua moc chau|bo sua)", "name": "Sữa bò Mộc Châu"},
-             {"pattern": r"(be chao|lon ban|ca suoi|thit trau|dac san|ca hoi|ca tam)", "name": "Đặc sản Mộc Châu"},
-             {"pattern": r"(nha hang|quan an)", "name": "Nhà hàng / Quán ăn Mộc Châu"},
+            {"pattern": r"(be chao|sua bo|che|dac san|ca hoi|lon ban)", "name": "Đặc sản Mộc Châu"},
         ],
     },
 
     province_display_overrides={
         "son la": "Sơn La",
-        "hoa binh": "Hòa Bình",
-        "dien bien": "Điện Biên",
+        "hoà bình": "Hoà Bình",
+        "hoa binh": "Hoà Bình"
     },
 
-    extra_travel_patterns=r"|sua bo|be chao|nha xe|mua man|mua hoa",
+    extra_travel_patterns="|(hoa man|hoa cai|trai tim|doi che|cau kinh|nha san|be chao|sua bo|ca hoi|lon ban)"
 )
 
 
