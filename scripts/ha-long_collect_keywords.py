@@ -1095,8 +1095,8 @@ def build_candidates():
         if kw_n in ("vietgoing",):
             continue
         
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
 
@@ -1158,8 +1158,8 @@ def build_candidates():
         if kd is not None and kd >= 60:
             continue
 
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, s.get("main_intent"))
@@ -1267,8 +1267,8 @@ def build_candidates():
         if vol < 20: # Filter low volume noise
             continue
             
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, None)
@@ -1504,7 +1504,7 @@ def main():
         print("⚠️  WARNING: name_variants trống. Script sẽ không detect được in-scope keywords.")
 
     candidates = build_candidates()
-    selected = select_keywords(candidates, total=100)
+    selected = select_keywords(candidates, total=len(candidates))
     export_csv(selected)
 
     print(f"✅ Exported: {OUTPUT_CSV}")
