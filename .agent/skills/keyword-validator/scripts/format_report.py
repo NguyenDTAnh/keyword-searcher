@@ -119,11 +119,25 @@ def _parse_val(v: str) -> float:
 
 
 def load_csv(csv_path: str) -> list[KeywordRow]:
-    """Đọc file CSV trung gian và convert thành list KeywordRow."""
+    """Đọc file CSV trung gian và convert thành list KeywordRow.
+    
+    Đã tích hợp lọc bỏ:
+    - Keywords có '6 sao', '7 sao' (Dữ liệu rác).
+    - Keywords chứa tên đối thủ: Viettravel, Agoda, Tripadvisor, Traveloka, Vivu, Vntrip, Airbnb.
+    """
     rows = []
+    blacklist = [
+        "6 sao", "7 sao",
+        "viettravel", "vietravel", "agoda", "tripadvisor", "traveloka", "vivu", "vntrip", "airbnb"
+    ]
+
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            kw = row.get("keyword", "")
+            if any(term in kw.lower() for term in blacklist):
+                continue
+
             rows.append(KeywordRow(
                 keyword=row.get("keyword", ""),
                 cluster=row.get("cluster", ""),
