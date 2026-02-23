@@ -488,7 +488,7 @@ def cluster_type(keyword: str) -> str:
     kw_n = norm(keyword)
 
     # 1) Lưu trú (ưu tiên cao nhất)
-    if re.search(r"(khach san|hotel|resort|homestay|hostel|nha nghi|villa|apartment|can ho)", kw_n):
+    if re.search(r"(khach san|hotel|resort|homestay|hostel|villa|apartment|can ho)", kw_n):
         return "Lưu trú"
 
     # 2) Di chuyển
@@ -664,7 +664,7 @@ def infer_intent(keyword: str) -> str:
         kw_n,
     )
 
-    is_stay = re.search(r"(khach san|hotel|resort|homestay|hostel|nha nghi|villa|apartment|can ho)", kw_n)
+    is_stay = re.search(r"(khach san|hotel|resort|homestay|hostel|villa|apartment|can ho)", kw_n)
     is_move = re.search(
         r"(may bay|san bay|airport|taxi|limousine|thue xe|xe |bus|tau|di chuyen|di lai|dua don|\btour\b|\bve\b)",
         kw_n,
@@ -1092,8 +1092,8 @@ def build_candidates():
         if kw_n in ("vietgoing",):
             continue
         
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ, phòng trọ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi|phong tro)", kw_n):
             continue
 
 
@@ -1155,8 +1155,8 @@ def build_candidates():
         if kd is not None and kd >= 60:
             continue
 
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ, phòng trọ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi|phong tro)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, s.get("main_intent"))
@@ -1264,8 +1264,8 @@ def build_candidates():
         if vol < 50: # Filter low volume noise (Search Volume >= 50 per user request)
             continue
             
-        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
-        if re.search(r"(tinh yeu|tinh nhan)", kw_n):
+        # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân, nhà nghỉ, phòng trọ)
+        if re.search(r"(tinh yeu|tinh nhan|nha nghi|phong tro)", kw_n):
             continue
 
         intent = resolve_intent(kw, ctype, None)
