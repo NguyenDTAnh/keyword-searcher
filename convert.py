@@ -263,6 +263,45 @@ for md_file in md_files:
         for col, width in col_widths.items():
             ws.column_dimensions[get_column_letter(col)].width = width
 
+        # ============================
+        # PHẦN 4: CHÚ THÍCH THUẬT NGỮ
+        # ============================
+        current_row += 2  # Dòng trống ngăn cách rộng hơn
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_col)
+        cell = ws.cell(row=current_row, column=1, value="4. CHÚ THÍCH GIẢI NGHĨA CÁC CỘT")
+        cell.font = SECTION_FONT
+        current_row += 1
+
+        glossary = [
+            "--- Nhóm A ---",
+            "- Cluster: Nhóm chủ đề",
+            "- Cluster type: Nhóm từ khoá của chủ đề",
+            "- Keyword: Từ khoá để SEO",
+            "- Intent: Mục đích, ý định tìm kiếm của khách hàng",
+            "- Impression: Số lần Vietgoing hiển thị cho 1 từ khoá cụ thể (Thông thường là ở page 1)",
+            "- Clicks: Số lượt truy cập vào website Vietgoing cho 1 từ khoá cụ thể",
+            "- Source: Nguồn dữ liệu",
+            "",
+            "--- Nhóm B ---",
+            "- Cluster: Nhóm chủ đề",
+            "- Cluster type: Nhóm từ khoá của chủ đề",
+            "- Keyword: Từ khoá để SEO",
+            "- Intent: Mục đích, ý định tìm kiếm của khách hàng",
+            "- Vol: Lưu lượng tìm kiếm của từ khoá",
+            "- YoY: Tăng trưởng tìm kiếm của từ khoá",
+            "- KD/Comp: Tính cạnh tranh cho từ khoá",
+            "- Bid: Giá thầu dự kiến trên Google Ads (High)"
+        ]
+
+        for line in glossary:
+            if line.strip():
+                ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_col)
+                cell = ws.cell(row=current_row, column=1, value=line)
+                cell.font = OVERVIEW_FONT
+                if "---" in line:
+                    cell.font = Font(name='Arial', size=10, bold=True)
+            current_row += 1
+
         # Freeze panes (không freeze vì layout phức tạp với nhiều section)
         # Lưu file
         xls_path = md_file.replace('.md', '.xlsx')
