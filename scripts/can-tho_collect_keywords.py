@@ -122,63 +122,62 @@ class DestinationConfig:
 # └──────────────────────────────────────────────────────────────────────────────┘
 
 DESTINATION = DestinationConfig(
-    # TODO: Thay đổi theo destination thực tế
-    name="<TÊN DESTINATION>",            # Ví dụ: "Đà Nẵng"
-    slug="<SLUG>",                        # QUY TẮC: viết thường + viết liền (e.g., "hanoi", "tamdao", "hochiminh")
+    name="Cần Thơ",
+    slug="can-tho",
 
     name_variants=[
-        # TODO: Liệt kê các biến thể tên destination (có dấu + không dấu + viết liền)
-        # Ví dụ: "đà nẵng", "da nang", "danang"
+        "cần thơ", "can tho", "cantho"
     ],
 
     entities=[
-        # TODO: Liệt kê entity đặc hữu — địa danh nổi tiếng chỉ thuộc destination này
-        # Keyword không chứa tên destination nhưng chứa entity vẫn được coi là in-scope
-        # Ví dụ: "cầu rồng", "bà nà hills", "bán đảo sơn trà", ...
+        "chợ nổi cái răng", "bến ninh kiều", "thiền viện trúc lâm phương nam", 
+        "mỹ khánh", "nhà cổ bình thủy", "cồn sơn", "chợ đêm tây đô", 
+        "làng hoa phó thọ", "thiền viện trúc lâm", "chợ nổi", "cái răng"
     ],
 
     districts=[
-        # TODO: Liệt kê quận/huyện của destination
-        # Ví dụ: "hải châu", "thanh khê", "liên chiểu", ...
+        "ninh kiều", "bình thủy", "cái răng", "ô môn", "thốt nốt", 
+        "phong điền", "cờ đỏ", "vĩnh thạnh", "thới lai"
     ],
 
     landmark_keywords=[
-        # TODO: Từ khoá normalized (không dấu) để detect Landmark/Văn hoá-Lịch sử
-        # Chú ý: đây là dạng KHÔNG DẤU vì logic match đã strip accent
-        # Ví dụ: "cau rong", "ba na", "ngu hanh son", "son tra", ...
+        "cho noi cai rang", "ben ninh kieu", "ninh kieu", "thien vien truc lam", 
+        "truc lam", "my khanh", "nha co binh thuy", "con son", "cho dem", 
+        "lang hoa pho tho", "cho noi", "cai rang"
     ],
 
     cluster_rules={
-        # TODO: Định nghĩa rules mapping cluster_name theo từng cluster_type
-        # Format: {cluster_type: [{"pattern": regex, "name": display}, ...]}
-        # Rule đầu tiên match thắng. Không match -> fallback mặc định.
-        #
-        # "Địa danh tham quan / Văn hóa - Lịch sử": [
-        #     {"pattern": r"(cau rong)", "name": "Cầu Rồng"},
-        # ],
-        # "Lưu trú": [
-        #     {"pattern": r"(\\b5 sao\\b)", "name": "Khách sạn 5 sao <Destination>"},
-        # ],
-        # "Di chuyển": [
-        #     {"pattern": r"(san bay|airport)", "name": "Sân bay <Destination>"},
-        # ],
-        # "Ẩm thực (F&B)": [
-        #     {"pattern": r"(mi quang)", "name": "Mì Quảng <Destination>"},
-        # ],
+        "Địa danh tham quan / Văn hóa - Lịch sử": [
+            {"pattern": r"(cho noi|cai rang)", "name": "Chợ nổi Cái Răng"},
+            {"pattern": r"(ninh kieu)", "name": "Bến Ninh Kiều"},
+            {"pattern": r"(con son)", "name": "Cồn Sơn"},
+            {"pattern": r"(my khanh)", "name": "KDL Mỹ Khánh"},
+            {"pattern": r"(thien vien|truc lam)", "name": "Thiền viện Trúc Lâm Phương Nam"},
+            {"pattern": r"(nha co|binh thuy)", "name": "Nhà cổ Bình Thuỷ"},
+        ],
+        "Lưu trú": [
+            {"pattern": r"(\b4 sao\b|4 sao)", "name": "Khách sạn 4 sao Cần Thơ"},
+            {"pattern": r"(\b5 sao\b|5 sao)", "name": "Khách sạn 5 sao Cần Thơ"},
+            {"pattern": r"(muong thanh|mường thanh)", "name": "Khách sạn Mường Thanh Cần Thơ"},
+            {"pattern": r"(ninh kieu)", "name": "Khách sạn gần bến Ninh Kiều"},
+        ],
+        "Di chuyển": [
+            {"pattern": r"(san bay|airport|tra noc)", "name": "Sân bay Cần Thơ"},
+            {"pattern": r"\btour\b", "name": "Tour Cần Thơ"},
+        ],
+        "Ẩm thực (F&B)": [
+            {"pattern": r"(hu tieu|hủ tiếu)", "name": "Hủ tiếu Cần Thơ"},
+            {"pattern": r"(lau mam|lẩu mắm)", "name": "Lẩu mắm Cần Thơ"},
+            {"pattern": r"(banh cong|bánh cóng)", "name": "Bánh cóng Cần Thơ"},
+            {"pattern": r"(banh xeo|bánh xèo)", "name": "Bánh xèo Cần Thơ"},
+        ],
     },
 
     province_display_overrides={
-        # TODO: Override hiển thị tên tỉnh (normalized -> có dấu đúng)
-        # "phu quoc": "Phú Quốc",
-        # "da lat": "Đà Lạt",
-        # "da nang": "Đà Nẵng",
-        # "sa pa": "Sa Pa",
-        # "tam dao": "Tam Đảo",
+        "can tho": "Cần Thơ",
     },
 
-    extra_travel_patterns="",
-    # TODO: Regex bổ sung cho travel-ish detection (nối thêm vào pattern mặc định)
-    # Ví dụ cho destination biển: r"|lan|diving|snorkeling|bien|bai bien"
+    extra_travel_patterns=r"|song nuoc|cho noi|mien tay",
 )
 
 

@@ -129,7 +129,9 @@ def load_csv(csv_path: str) -> list[KeywordRow]:
     blacklist = [
         "6 sao", "7 sao",
         "viettravel", "vietravel", "agoda", "tripadvisor", "traveloka", "vivu", "vntrip", "airbnb",
-        "chudu24", "chudu", "trivago", "saigontourist"
+        "chudu24", "chudu", "trivago", "saigontourist",
+        "mytour", "fiditour", "vietsun tourist", "vietsuntourist", "vietsun travel", "vietsuntravel",
+        "công ty du lịch nụ cười mê kông cần thơ", "công ty du lịch", "cong ty du lịch"
     ]
 
     with open(csv_path, newline="", encoding="utf-8") as f:

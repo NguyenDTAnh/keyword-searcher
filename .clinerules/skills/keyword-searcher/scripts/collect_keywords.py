@@ -372,6 +372,21 @@ FOREIGN_TERMS = [
     "nuoc ngoai", "quoc te", "nga", "russia", "thuy sy", "italy", "italia", "ha lan", "philippines"
 ]
 
+BLACKLIST = [
+    "6 sao", "7 sao",
+    "viettravel", "vietravel", "agoda", "tripadvisor", "traveloka", "vivu", "vntrip", "airbnb",
+    "chudu24", "chudu", "trivago", "saigontourist",
+    "mytour", "fiditour", "vietsun tourist", "vietsuntourist", "vietsun travel", "vietsuntravel",
+    "công ty du lịch nụ cười mê kông cần thơ", "công ty du lịch", "cong ty du lịch"
+]
+
+
+def is_blacklisted(kw: str) -> bool:
+    """Kiểm tra keyword có nằm trong blacklist (đối thủ, rác, công ty du lịch) hay không."""
+    kw_l = kw.lower()
+    return any(term in kw_l for term in BLACKLIST)
+
+
 def is_foreign_related(kw_n: str) -> bool:
     """Kiểm tra keyword có liên quan đến tour nước ngoài hay không."""
     # Chỉ lọc nếu có chữ "tour" hoặc "du lich" đi kèm với tên nước ngoài
@@ -799,7 +814,7 @@ def load_gsc_queries(path: str):
         r = csv.DictReader(f)
         for row in r:
             kw = (row.get("Top queries") or "").strip()
-            if not kw:
+            if not kw or is_blacklisted(kw):
                 continue
             try:
                 clicks = int(float(row.get("Clicks") or 0))
@@ -827,7 +842,7 @@ def load_seo_insider(path: str):
         r = csv.DictReader(f)
         for row in r:
             kw = (row.get("keyword") or "").strip()
-            if not kw:
+            if not kw or is_blacklisted(kw):
                 continue
             try:
                 vol = (
@@ -866,7 +881,7 @@ def load_trends(dir_path: str):
                 continue
             for row in r:
                 q = (row.get("query") or "").strip()
-                if not q:
+                if not q or is_blacklisted(q):
                     continue
                 qn = norm(q)
                 si_raw = (row.get("search interest") or "").strip()
@@ -959,7 +974,7 @@ def load_google_planner(dir_path: str):
         
         for row in reader:
             kw = row.get("Keyword") or row.get("Keyword phrase")
-            if not kw:
+            if not kw or is_blacklisted(kw):
                 continue
             kw = kw.strip()
             
