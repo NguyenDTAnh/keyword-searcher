@@ -36,6 +36,16 @@ def format_vnd(val):
     except:
         return val
 
+# === Mapping source cho Group B ===
+def map_source(val):
+    v = str(val).lower().strip()
+    if 'seo_insider' in v: return 'Seo Insider'
+    if 'google_planner' in v: return 'Google Planner'
+    if 'google_trend' in v: return 'Google Trend'
+    if v and v not in ['n/a', 'nan', 'none', '']:
+        return 'Khác'
+    return val
+
 # === Xoá markdown formatting ===
 def clean_md(text):
     text = text.replace('**', '')
@@ -104,11 +114,11 @@ THIN_BORDER = Border(
 EVEN_ROW_FILL = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
 
 # === Cột cho Group A và Group B ===
-COLS_A = ['STT', 'cluster', 'cluster type', 'keyword', 'intent', 'impression', 'clicks', 'source']
-COLS_A_IDX = {'STT': 0, 'Cluster': 1, 'Cluster Type': 2, 'Keyword': 3, 'Intent': 4, 'Imp': 5, 'Clicks': 6, 'Source': 7}
+COLS_A = ['STT', 'cluster', 'cluster type', 'keyword', 'intent', 'impression', 'clicks', 'CTR', 'source']
+COLS_A_IDX = {'STT': 0, 'Cluster': 1, 'Cluster Type': 2, 'Keyword': 3, 'Intent': 4, 'Imp': 5, 'Clicks': 6, 'CTR': 7, 'Source': 8}
 
-COLS_B = ['STT', 'cluster', 'cluster type', 'keyword', 'intent', 'vol', 'YoY', 'KD/comp', 'bid (high)']
-COLS_B_IDX = {'STT': 0, 'Cluster': 1, 'Cluster Type': 2, 'Keyword': 3, 'Intent': 4, 'Vol': 5, 'YoY': 6, 'KD/Comp': 7, 'Bid (High)': 8}
+COLS_B = ['STT', 'cluster', 'cluster type', 'keyword', 'intent', 'vol', 'YoY', 'KD/comp', 'bid (high)', 'source']
+COLS_B_IDX = {'STT': 0, 'Cluster': 1, 'Cluster Type': 2, 'Keyword': 3, 'Intent': 4, 'Vol': 5, 'YoY': 6, 'KD/Comp': 7, 'Bid (High)': 8, 'Source': 9}
 
 # === Xử lý từng file ===
 for md_file in md_files:
@@ -125,8 +135,8 @@ for md_file in md_files:
         ws = wb.active
         ws.title = "Keyword Planner"
 
-        # Tính max cột = 9 (số cột lớn nhất trong Group B)
-        max_col = 9
+        # Tính max cột = 10 (số cột lớn nhất trong Group B có source)
+        max_col = 10
         current_row = 1
 
         # ============================
@@ -188,8 +198,8 @@ for md_file in md_files:
                     mapped[h_idx] = ''
 
             # Đổi source GSC
-            if mapped.get(7, '') == 'data/google_search_console/Queries.csv':
-                mapped[7] = 'GSC Vietgoing.com'
+            if mapped.get(8, '') == 'data/google_search_console/Queries.csv':
+                mapped[8] = 'GSC Vietgoing.com'
 
             for col_idx in range(len(COLS_A)):
                 cell = ws.cell(row=current_row, column=col_idx + 1, value=mapped.get(col_idx, ''))
@@ -237,6 +247,10 @@ for md_file in md_files:
             if 8 in mapped:
                 mapped[8] = format_vnd(mapped[8])
 
+            # Mapping source cho Group B
+            if 9 in mapped:
+                mapped[9] = map_source(mapped[9])
+
             for col_idx in range(len(COLS_B)):
                 cell = ws.cell(row=current_row, column=col_idx + 1, value=mapped.get(col_idx, ''))
                 cell.font = DATA_FONT
@@ -257,8 +271,9 @@ for md_file in md_files:
             5: 24,   # intent
             6: 12,   # impression/vol
             7: 10,   # clicks/YoY
-            8: 20,   # source/KD/comp
-            9: 15,   # bid (high)
+            8: 10,   # CTR/KD/comp
+            9: 18,   # source/bid (high)
+            10: 18,  # source (Group B)
         }
         for col, width in col_widths.items():
             ws.column_dimensions[get_column_letter(col)].width = width
@@ -280,6 +295,7 @@ for md_file in md_files:
             "- Intent: Mục đích, ý định tìm kiếm của khách hàng",
             "- Impression: Số lần Vietgoing hiển thị cho 1 từ khoá cụ thể (Thông thường là ở page 1)",
             "- Clicks: Số lượt truy cập vào website Vietgoing cho 1 từ khoá cụ thể",
+            "- CTR: Tỷ lệ nhấp chuột (Click-Through Rate)",
             "- Source: Nguồn dữ liệu",
             "",
             "--- Nhóm B ---",
@@ -290,7 +306,8 @@ for md_file in md_files:
             "- Vol: Lưu lượng tìm kiếm của từ khoá",
             "- YoY: Tăng trưởng tìm kiếm của từ khoá",
             "- KD/Comp: Tính cạnh tranh cho từ khoá",
-            "- Bid: Giá thầu dự kiến trên Google Ads (High)"
+            "- Bid: Giá thầu dự kiến trên Google Ads (High)",
+            "- Source: Nguồn dữ liệu (Google Planner / Seo Insider / Google Trend / Khác)"
         ]
 
         for line in glossary:
