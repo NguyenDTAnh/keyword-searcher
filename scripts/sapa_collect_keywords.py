@@ -1491,7 +1491,7 @@ def main():
         print("⚠️  WARNING: name_variants trống. Script sẽ không detect được in-scope keywords.")
 
     candidates = build_candidates()
-    selected = select_keywords(candidates, total=100)
+    selected = select_keywords(candidates, total=len(candidates))
     export_csv(selected)
 
     print(f"✅ Exported: {OUTPUT_CSV}")
