@@ -21,13 +21,14 @@ Bạn phải thực hiện tìm kiếm và thu thập dữ liệu theo đúng lu
     - **SEO Insider:** `data/seo_insider/advance_search_report.csv`.
     - **Google Trend:** `data/google_trend/`.
 
-2.  **Giai đoạn 2: Kiểm tra số lượng (The 100-Keyword Threshold)**
+2.  **Giai đoạn 2: Kiểm tra Search Volume**
     - Tổng hợp và lọc dữ liệu từ các nguồn trên.
-    - **NẾU** tổng số từ khóa đạt yêu cầu (In-scope, Travel-intent) **đã đủ 100 từ**, dừng lại và tiến hành cấu trúc dữ liệu.
-    - **NẾU** tổng số từ khóa **chưa đủ 100 từ**, chuyển sang Giai đoạn 3.
+    - **BẮT BUỘC:** Chỉ lấy các từ khóa có **Search Volume >= 50** (ngoại trừ dữ liệu từ GSC ưu tiên theo Clicks/Impressions).
+    - Không giới hạn số lượng keyword đầu ra (bỏ mốc 100).
+    - **NẾU** dữ liệu nội bộ quá ít, chuyển sang Giai đoạn 3.
 
 3.  **Giai đoạn 3: Fallback - Web Search**
-    - Sử dụng công cụ Search Web để bổ sung các từ khóa còn thiếu cho đến khi đạt mốc 100.
+    - Nếu dữ liệu nội bộ quá ít, sử dụng công cụ Search Web để bổ sung các ý tưởng từ khóa chất lượng.
     - Ưu tiên các từ khóa long-tail, trend mới chưa có trong database nội bộ.
     - Lưu dữ liệu bổ sung vào `data/web_suggest/[slug].csv` để script có thể tích hợp.
 
@@ -43,7 +44,7 @@ Bạn phải thực hiện tìm kiếm và thu thập dữ liệu theo đúng lu
 
 ## 3. CHIẾN THUẬT THU THẬP (STRATEGY MIX)
 
-Tổng hợp danh sách 100 từ khóa thô (kết hợp dữ liệu nội bộ và thị trường) đảm bảo đủ 3 loại Search Intent:
+Tổng hợp danh sách từ khóa thô (kết hợp dữ liệu nội bộ và thị trường) đảm bảo đủ 3 loại Search Intent:
 
 - **Informational:** Blog, hướng dẫn, kinh nghiệm du lịch.
 - **Commercial:** Top list, review so sánh, đánh giá dịch vụ.
@@ -119,6 +120,6 @@ Khi nhận yêu cầu: _"Tạo bộ keyword cho [Destination]"_ (Ví dụ: Hà N
 - **SLUG LÀ CHÌA KHÓA:** Luôn dùng định dạng viết thường, viết liền, không dấu (e.g., `hochiminh`). Mọi sai sót về slug sẽ dẫn đến mất dấu dữ liệu.
 - **NGUỒN GỐC LÀ SỰ THẬT:** Tuyệt đối không có dữ liệu nào được đưa vào mà thiếu cột "Source". Nếu lấy từ Web Search, ghi rõ `(web)`.
 - **NỘI ĐỊA CỐT LÕI:** Tuyệt đối không để lọt các từ "tour Thái Lan", "tour Hàn Quốc"... từ các nguồn mới vào bộ keyword final.
-- **KHÔNG NGỪNG TÌM KIẾM:** Nếu dữ liệu nội bộ < 100 keywords, bắt buộc phải dùng `search_web` để bổ sung. Đừng bao giờ bàn giao bộ keyword chỉ có 20-30 từ.
+- **KHÔNG NGỪNG TÌM KIẾM:** Nếu dữ liệu nội bộ quá ít, bắt buộc phải dùng `search_web` để bổ sung ý tưởng.
 - **SỬ DỤNG CONTEXT7:** Khi cần tra cứu cấu trúc file, thư viện Python (như pandas, re) hoặc các setup phức tạp, hãy sử dụng `context7` để đảm bảo độ chính xác cao nhất.
 - **KIỂM TRA ĐƯỜNG DẪN:** Trước khi chạy script, hãy `ls` kiểm tra xem thư mục `data/google_planner/[slug]/` có tồn tại hay không.

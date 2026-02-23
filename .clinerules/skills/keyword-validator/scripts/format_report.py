@@ -184,6 +184,7 @@ def run_quality_gate(rows: list[KeywordRow], dest_name: str) -> dict[str, list[s
             gates["source"].append(f"Source thiếu: '{r.keyword}'")
 
     # 4) Intent ratio (spec 20/40/40 cho report 100 keywords)
+    # NOTE: Chỉ check nếu đạt đúng 100 từ, nếu không thì bỏ qua gate này
     if len(rows) == 100:
         cnt = Counter([r.intent for r in rows])
         expected = {
@@ -301,7 +302,7 @@ def export_markdown(rows: list[KeywordRow], dest_name: str, output_path: str):
     gate_line("Taxonomy (landmark không được nằm trong F&B)", "taxonomy")
     gate_line("Geo-scope (out-of-scope phải tách cluster '* Trip')", "geo")
     gate_line("Source (mỗi keyword phải có source folder/file)", "source")
-    gate_line("Intent ratio (100 keywords phải đạt 20/40/40)", "intent_ratio")
+    gate_line("Intent ratio (check 20/40/40 nếu đủ 100 keywords)", "intent_ratio")
 
     # --- Ghi file ---
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

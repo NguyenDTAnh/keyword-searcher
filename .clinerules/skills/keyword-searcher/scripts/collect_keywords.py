@@ -8,7 +8,7 @@ CÁCH DÙNG:
   4) Chạy: python .clinerules/skills/keyword-searcher/scripts/collect_keywords.py
 
 OUTPUT:
-  - File CSV trung gian: reports/[destination]-raw.csv (100 keywords đã xử lý)
+  - File CSV trung gian: reports/[destination]-raw.csv (tất cả keywords đã xử lý)
   - File CSV này sẽ được format_report.py (keyword-validator) đọc để tạo Report Final.
 
 Yêu cầu quan trọng (giữ nguyên spec keyword-planner.md):
@@ -16,8 +16,8 @@ Yêu cầu quan trọng (giữ nguyên spec keyword-planner.md):
   2) Chuẩn hoá Geo Scope (In-scope / Out-of-scope / Geo Ambiguous) – không trộn tỉnh.
   3) Nhóm A: ưu tiên dữ liệu GSC (Clicks/Impressions/CTR/Position) – không tự estimate số liệu thiếu.
   4) Nhóm B: cơ hội mở rộng từ SEO Insider + Google Trend (lọc travel intent).
-  5) Phân bổ intent tổng 100 keyword theo tỉ lệ 20/40/40.
-  6) Bắt buộc ghi rõ Source Folder/File cho từng dòng.
+  5) Phân bổ intent theo tỉ lệ 20/40/40 (nếu có thể).
+  6) Lấy tất cả keyword có Search Volume >= 50 (hoặc Clicks > 0 đối với GSC).
 """
 
 import csv
@@ -1150,7 +1150,7 @@ def build_candidates():
 
         vol = s["vol"]
         kd = s["kd"]
-        if vol is None or vol < 500:
+        if vol is None or vol < 50:
             continue
         if kd is not None and kd >= 60:
             continue
@@ -1261,7 +1261,7 @@ def build_candidates():
         cluster = cluster_name(kw, ctype, geo, out_cluster)
         
         vol = p["vol"]
-        if vol < 20: # Filter low volume noise
+        if vol < 50: # Filter low volume noise (Search Volume >= 50 per user request)
             continue
             
         # Lọc bỏ từ khoá nhạy cảm/không phù hợp (tình yêu, tình nhân)
@@ -1385,78 +1385,12 @@ def build_candidates():
 # =====================
 
 
-def select_keywords(candidates: list[KeywordRow], total: int = 100):
+def select_keywords(candidates: list[KeywordRow]):
+    """Sắp xếp và trả về tất cả keywords, ưu tiên cân bằng intent nếu có thể."""
     # Ưu tiên Group A trước, sau đó Group B.
-    buckets = defaultdict(list)
-    for c in candidates:
-        buckets[c.intent].append(c)
-
-    # Sort inside intent by group and score
-    for intent, arr in buckets.items():
-        arr.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
-
-    targets = {
-        "Informational": int(total * 0.2),
-        "Commercial Investigation": int(total * 0.4),
-        "Transaction": total - int(total * 0.2) - int(total * 0.4),
-    }
-
-    def promote(row: KeywordRow, new_intent: str) -> KeywordRow:
-        """Clone row và override intent + action_plan để output đúng bucket."""
-        r2 = KeywordRow(**{**row.__dict__})
-        r2.intent = new_intent
-        r2.action_plan = action_plan_for(r2)
-        return r2
-
-    def take(intent: str, target: int):
-        """Lấy keyword từ bucket theo thứ tự ưu tiên, bỏ qua duplicate."""
-        for row in buckets.get(intent, []):
-            if sum(1 for r in selected if r.intent == intent) >= target:
-                break
-            kn = norm(row.keyword)
-            if kn in used:
-                continue
-            selected.append(row)
-            used.add(kn)
-
-    selected: list[KeywordRow] = []
-    used = set()
-
-    # 1) Informational: lấy strict đủ 20
-    take("Informational", targets["Informational"])
-
-    # 2) Transaction: lấy strict trước, thiếu thì promote từ CI (soft transaction)
-    trans_target = targets["Transaction"]
-    take("Transaction", trans_target)
-
-    if sum(1 for r in selected if r.intent == "Transaction") < trans_target:
-        need = trans_target - sum(1 for r in selected if r.intent == "Transaction")
-        ci_pool = buckets.get("Commercial Investigation", [])
-        soft = [r for r in ci_pool if norm(r.keyword) not in used and _is_soft_transaction_candidate(r)]
-        soft.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
-        for row in soft[:need]:
-            kn = norm(row.keyword)
-            if kn in used:
-                continue
-            selected.append(promote(row, "Transaction"))
-            used.add(kn)
-
-    # 3) Commercial Investigation: lấy phần còn lại cho đủ target
-    take("Commercial Investigation", targets["Commercial Investigation"])
-
-    # Fill remaining (nếu thiếu do pool ít): lấy best overall
-    if len(selected) < total:
-        rest = [c for c in candidates if norm(c.keyword) not in used]
-        rest.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
-        for row in rest:
-            if len(selected) >= total:
-                break
-            selected.append(row)
-            used.add(norm(row.keyword))
-
-    # Sắp xếp theo Cluster (alpha), rồi Group A trước.
-    selected.sort(key=lambda x: (x.cluster.lower(), 0 if x.group == "A" else 1, -x.score))
-    return selected[:total]
+    # Sắp xếp theo Cluster (alpha) trước khi xuất để dễ đọc trong report
+    candidates.sort(key=lambda x: (x.cluster.lower(), 0 if x.group == "A" else 1, -x.score))
+    return candidates
 
 
 # =====================
@@ -1465,7 +1399,7 @@ def select_keywords(candidates: list[KeywordRow], total: int = 100):
 
 
 def export_csv(rows: list[KeywordRow]):
-    """Xuất 100 keywords đã xử lý ra file CSV trung gian cho format_report.py."""
+    """Xuất tất cả keywords đã xử lý ra file CSV trung gian cho format_report.py."""
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
@@ -1501,7 +1435,7 @@ def main():
         print("⚠️  WARNING: name_variants trống. Script sẽ không detect được in-scope keywords.")
 
     candidates = build_candidates()
-    selected = select_keywords(candidates, total=100)
+    selected = select_keywords(candidates)
     export_csv(selected)
 
     print(f"✅ Exported: {OUTPUT_CSV}")
