@@ -128,14 +128,18 @@ def load_csv(csv_path: str) -> list[KeywordRow]:
     rows = []
     blacklist = [
         "6 sao", "7 sao",
-        "viettravel", "vietravel", "agoda", "tripadvisor", "traveloka", "vivu", "vntrip", "airbnb"
+        "viettravel", "vietravel", "agoda", "tripadvisor", "traveloka", "vivu", "vntrip", "airbnb",
+        "chudu24", "chudu", "trivago", "saigontourist"
     ]
 
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
+        import re
+        year_pattern = re.compile(r"\b20[1-3][0-9]\b")
         for row in reader:
             kw = row.get("keyword", "")
-            if any(term in kw.lower() for term in blacklist):
+            kw_l = kw.lower()
+            if any(term in kw_l for term in blacklist) or year_pattern.search(kw_l):
                 continue
 
             rows.append(KeywordRow(

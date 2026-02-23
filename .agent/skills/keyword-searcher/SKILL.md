@@ -38,7 +38,7 @@ Bạn phải thực hiện tìm kiếm và thu thập dữ liệu theo đúng lu
 - **BẮT BUỘC CÓ NGUỒN DÒNG:** Mỗi dòng dữ liệu **PHẢI** có cột Nguồn xác thực. Không có "Nguồn" = Loại bỏ.
 - **KHÔNG TỰ ÁNG CHỪNG:** Tuyệt đối không tự suy diễn hoặc ước tính các chỉ số nếu nguồn không cung cấp.
 - **KÝ HIỆU TRỐNG:** Nếu không có dữ liệu số, bắt buộc điền dấu `--`.
-- **LỌC TỪ KHOÁ NHẠY CẢM:** Tự động loại bỏ các từ khoá không phù hợp như "tình yêu", "tình nhân", "nhà nghỉ", "phòng trọ", "nhà trọ"...
+- **LỌC TỪ KHOÁ NHẠY CẢM:** Tự động loại bỏ các từ khoá không phù hợp như "tình yêu", "tình nhân", "nhà nghỉ", "phòng trọ", "nhà trọ"... và các tên đối thủ (Chudu24, Chudu, Trivago, Saigontourist, Agoda, Traveloka, v.v.).
 - **LỌC TOUR NƯỚC NGOÀI (BẮT BUỘC):** Với các nguồn `web_suggest`, `google_trend`, `google_planner`, **BỎ QUA** tất cả từ khóa liên quan đến tour nước ngoài (Thái Lan, Hàn Quốc, Nhật Bản, v.v.). Chỉ tập trung vào tour nội bộ và dịch vụ tại chỗ.
 - **ƯU TIÊN LƯU TRÚ:** Đặc biệt ưu tiên lấy các từ khóa về khách sạn, resort, villa, homestay. Các từ khóa này sẽ được script tự động tăng trọng số (score).
 
