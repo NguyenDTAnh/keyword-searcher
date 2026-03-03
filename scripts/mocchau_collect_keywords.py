@@ -123,7 +123,7 @@ class DestinationConfig:
 
 DESTINATION = DestinationConfig(
     name="Mộc Châu",
-    slug="moc_chau",
+    slug="moc-chau",
 
     name_variants=[
         "mộc châu", "moc chau", "mocchau"
@@ -1236,10 +1236,11 @@ def build_candidates():
         row.action_plan = action_plan_for(row)
         candidates[kw_n] = row
 
-    # Group B3: Từ Google Planner (bổ sung)
+    # Group B3: Từ Google Planner (bổ sung - ưu tiên đè lên B1/B2)
     for kw_n, p in planner_data.items():
         if kw_n in candidates:
-            continue
+            if candidates[kw_n].group == "A":
+                continue
             
         kw = p["keyword"]
         geo, out_cluster = geo_scope(kw)
@@ -1297,7 +1298,7 @@ def build_candidates():
         if p["bid_high"] > 0:
             bonus_multiplier += 0.1
             
-        score = base_score * comp_factor * bonus_multiplier
+        score = base_score * comp_factor * bonus_multiplier * 10.0 # Ưu tiên Planner
         
         # Ưu tiên khách sạn/resort
         if ctype == "Lưu trú":
@@ -1383,77 +1384,9 @@ def build_candidates():
 
 
 def select_keywords(candidates: list[KeywordRow], total: int = 100):
-    # Ưu tiên Group A trước, sau đó Group B.
-    buckets = defaultdict(list)
-    for c in candidates:
-        buckets[c.intent].append(c)
-
-    # Sort inside intent by group and score
-    for intent, arr in buckets.items():
-        arr.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
-
-    targets = {
-        "Informational": int(total * 0.2),
-        "Commercial Investigation": int(total * 0.4),
-        "Transaction": total - int(total * 0.2) - int(total * 0.4),
-    }
-
-    def promote(row: KeywordRow, new_intent: str) -> KeywordRow:
-        """Clone row và override intent + action_plan để output đúng bucket."""
-        r2 = KeywordRow(**{**row.__dict__})
-        r2.intent = new_intent
-        r2.action_plan = action_plan_for(r2)
-        return r2
-
-    def take(intent: str, target: int):
-        """Lấy keyword từ bucket theo thứ tự ưu tiên, bỏ qua duplicate."""
-        for row in buckets.get(intent, []):
-            if sum(1 for r in selected if r.intent == intent) >= target:
-                break
-            kn = norm(row.keyword)
-            if kn in used:
-                continue
-            selected.append(row)
-            used.add(kn)
-
-    selected: list[KeywordRow] = []
-    used = set()
-
-    # 1) Informational: lấy strict đủ 20
-    take("Informational", targets["Informational"])
-
-    # 2) Transaction: lấy strict trước, thiếu thì promote từ CI (soft transaction)
-    trans_target = targets["Transaction"]
-    take("Transaction", trans_target)
-
-    if sum(1 for r in selected if r.intent == "Transaction") < trans_target:
-        need = trans_target - sum(1 for r in selected if r.intent == "Transaction")
-        ci_pool = buckets.get("Commercial Investigation", [])
-        soft = [r for r in ci_pool if norm(r.keyword) not in used and _is_soft_transaction_candidate(r)]
-        soft.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
-        for row in soft[:need]:
-            kn = norm(row.keyword)
-            if kn in used:
-                continue
-            selected.append(promote(row, "Transaction"))
-            used.add(kn)
-
-    # 3) Commercial Investigation: lấy phần còn lại cho đủ target
-    take("Commercial Investigation", targets["Commercial Investigation"])
-
-    # Fill remaining (nếu thiếu do pool ít): lấy best overall
-    if len(selected) < total:
-        rest = [c for c in candidates if norm(c.keyword) not in used]
-        rest.sort(key=lambda x: (0 if x.group == "A" else 1, -x.score))
-        for row in rest:
-            if len(selected) >= total:
-                break
-            selected.append(row)
-            used.add(norm(row.keyword))
-
-    # Sắp xếp theo Cluster (alpha), rồi Group A trước.
-    selected.sort(key=lambda x: (x.cluster.lower(), 0 if x.group == "A" else 1, -x.score))
-    return selected[:total]
+    """Sắp xếp và trả về tất cả keywords."""
+    candidates.sort(key=lambda x: (x.cluster.lower(), 0 if x.group == "A" else 1, -x.score))
+    return candidates
 
 
 # =====================
